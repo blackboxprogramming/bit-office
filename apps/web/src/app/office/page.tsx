@@ -1238,7 +1238,7 @@ export default function OfficePage() {
         <div style={{
           width: "33vw",
           minWidth: 300,
-          maxWidth: 500,
+          maxWidth: 420,
           flexShrink: 0,
           height: "100vh",
           backgroundColor: "#1e1a30",
@@ -1254,24 +1254,24 @@ export default function OfficePage() {
               <button
                 onClick={() => setSidebarTab("agents")}
                 style={{
-                  flex: 1, padding: "8px 6px", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
+                  flex: 1, minWidth: 0, padding: "10px 6px", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
                   borderRight: "1px solid #3d2e54",
                   backgroundColor: sidebarTab === "agents" ? "#382800" : "#1a1530",
                   color: sidebarTab === "agents" ? "#e8b040" : "#6a5848",
                   fontFamily: "'Press Start 2P', monospace",
-                  letterSpacing: "0.03em",
+                  letterSpacing: "0.03em", textAlign: "center",
                   boxShadow: sidebarTab === "agents" ? "inset 0 -2px 0 #e8b040" : "none",
                 }}
               >Agents</button>
               <button
                 onClick={() => setSidebarTab("team")}
                 style={{
-                  flex: 1, padding: "8px 6px", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
+                  flex: 1, minWidth: 0, padding: "10px 6px", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
                   backgroundColor: sidebarTab === "team" ? "#382800" : "#1a1530",
                   color: sidebarTab === "team" ? "#e8b040" : "#6a5848",
                   position: "relative",
                   fontFamily: "'Press Start 2P', monospace",
-                  letterSpacing: "0.03em",
+                  letterSpacing: "0.03em", textAlign: "center",
                   boxShadow: sidebarTab === "team" ? "inset 0 -2px 0 #e8b040" : "none",
                 }}
               >
@@ -1291,12 +1291,12 @@ export default function OfficePage() {
               <button
                 onClick={() => setShowHireModal(true)}
                 style={{
-                  flex: 1, padding: "7px 6px",
+                  flex: 1, minWidth: 0, padding: "9px 6px",
                   border: "1px solid #e8b04060",
                   backgroundColor: "transparent", color: "#e8b040",
                   fontSize: 10, fontWeight: 700, cursor: "pointer",
                   fontFamily: "'Press Start 2P', monospace",
-                  letterSpacing: "0.03em",
+                  letterSpacing: "0.03em", textAlign: "center",
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(200,155,48,0.12)"; e.currentTarget.style.borderColor = "#e8b040"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.borderColor = "#e8b04060"; }}
@@ -1306,12 +1306,12 @@ export default function OfficePage() {
                   <button
                     onClick={handleStopTeam}
                     style={{
-                      flex: 1, padding: "7px 6px",
+                      flex: 1, minWidth: 0, padding: "9px 6px",
                       border: "1px solid #e8903070",
                       backgroundColor: "transparent", color: "#e89030",
                       fontSize: 10, fontWeight: 700, cursor: "pointer",
                       fontFamily: "'Press Start 2P', monospace",
-                      letterSpacing: "0.03em",
+                      letterSpacing: "0.03em", textAlign: "center",
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(224,133,48,0.12)"; e.currentTarget.style.borderColor = "#e89030"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.borderColor = "#e8903070"; }}
@@ -1320,12 +1320,12 @@ export default function OfficePage() {
                 <button
                   onClick={handleFireTeam}
                   style={{
-                    flex: 1, padding: "7px 6px",
+                    flex: 1, minWidth: 0, padding: "9px 6px",
                     border: "1px solid #e0484870",
                     backgroundColor: "transparent", color: "#e04848",
                     fontSize: 10, fontWeight: 700, cursor: "pointer",
                     fontFamily: "'Press Start 2P', monospace",
-                    letterSpacing: "0.03em",
+                    letterSpacing: "0.03em", textAlign: "center",
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(212,68,68,0.12)"; e.currentTarget.style.borderColor = "#e04848"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.borderColor = "#e0484870"; }}
@@ -1334,12 +1334,12 @@ export default function OfficePage() {
                 <button
                   onClick={() => setShowHireTeamModal(true)}
                   style={{
-                    flex: 1, padding: "7px 6px",
+                    flex: 1, minWidth: 0, padding: "9px 6px",
                     border: "1px solid #e8903070",
                     backgroundColor: "transparent", color: "#e89030",
                     fontSize: 10, fontWeight: 700, cursor: "pointer",
                     fontFamily: "'Press Start 2P', monospace",
-                    letterSpacing: "0.03em",
+                    letterSpacing: "0.03em", textAlign: "center",
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(224,133,48,0.12)"; e.currentTarget.style.borderColor = "#e89030"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.borderColor = "#e8903070"; }}

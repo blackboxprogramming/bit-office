@@ -278,8 +278,8 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
         }
         case "AGENT_STATUS": {
           const agent = agents.get(event.agentId) ?? defaultAgent(event.agentId);
-          // Guard: don't downgrade from working/waiting_approval to idle (stale timer race)
-          if (event.status === "idle" && (agent.status === "working" || agent.status === "waiting_approval")) {
+          // Guard: ignore all server-side idle downgrades; rely on TASK_DONE/TASK_FAILED events instead
+          if (event.status === "idle" && agent.status !== "idle") {
             break;
           }
           agents.set(event.agentId, { ...agent, status: event.status });

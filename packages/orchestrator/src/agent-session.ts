@@ -437,7 +437,7 @@ export class AgentSession {
           this.dequeueNext();
         } catch (err) {
           console.error(`[Agent ${this.agentId}] Error in close handler:`, err);
-          this.setStatus("idle");
+          this.setStatus("error");
           this.dequeueNext();
         }
       });
@@ -673,8 +673,8 @@ export class AgentSession {
   }
 
   private setStatus(status: AgentStatus) {
-    // Guard: don't downgrade to "idle" if a new task is already running
-    if (status === "idle" && this.process) return;
+    // Guard: don't downgrade to "idle" if a task is running or queued
+    if (status === "idle" && (this.process || this.taskQueue.length > 0)) return;
     this._status = status;
     this.onEvent({
       type: "agent:status",
