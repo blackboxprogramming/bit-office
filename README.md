@@ -141,7 +141,7 @@ The UI only renders 4 key events to keep things simple:
 
 ### Team Collaboration Phases
 
-When you hire a team, the leader follows a structured 5-phase lifecycle instead of jumping straight to coding:
+When you hire a team, the leader follows a structured lifecycle instead of jumping straight to coding:
 
 ```
 CREATE ──► DESIGN ──► EXECUTE ──► COMPLETE ──┐
@@ -154,27 +154,55 @@ CREATE ──► DESIGN ──► EXECUTE ──► COMPLETE ──┐
 |-------|-------------|----------------|--------|
 | **CREATE** | Leader asks what you want to build | Yes | Normal chat input |
 | **DESIGN** | Leader outputs a `[PLAN]...[/PLAN]` | Yes (feedback) | **Approve Plan** button |
-| **EXECUTE** | Leader delegates to workers | No (Cancel only) | Working indicator |
-| **COMPLETE** | Delivery card with files, preview | Yes (feedback) | **End Project** button |
+| **EXECUTE** | Leader delegates to workers (see below) | No (Cancel only) | Working indicator |
+| **COMPLETE** | Delivery card with files + Preview button | Yes (feedback) | **End Project** button |
 
-- **CREATE → DESIGN**: Automatic when the leader outputs a `[PLAN]` block
-- **DESIGN → EXECUTE**: User clicks "Approve Plan"
-- **EXECUTE → COMPLETE**: All workers finish, leader summarizes
+- **CREATE → DESIGN**: Automatic when leader outputs a `[PLAN]` block
+- **DESIGN → EXECUTE**: User clicks "Approve Plan" → system creates a unique project directory
+- **EXECUTE → COMPLETE**: All workers finish, leader summarizes with preview info
 - **COMPLETE → EXECUTE**: User sends feedback (change requests)
 - **COMPLETE → CREATE**: User clicks "End Project" (fresh cycle)
 
-The delivery card in COMPLETE phase shows a fixed-format summary: changed files, entry file, project directory, and a deterministic Preview button.
-
-### Delegation (Execute Phase)
+### Execute Phase — Build → Review → Fix Loop
 
 ```
-Lead delegates to workers (@Alex, @Mia, ...)
-  └─ Workers execute in parallel
-       └─ Results collected (20s batch window)
-            └─ Lead reviews → DONE or one retry round
+Leader assigns Developer(s)
+  └─ Dev codes, builds, fixes build errors, reports with preview info
+       └─ Leader assigns Code Reviewer
+            └─ Reviewer checks code → VERDICT: PASS or FAIL
+                 ├─ PASS → Leader outputs FINAL SUMMARY → COMPLETE phase
+                 └─ FAIL → Leader sends ISSUES to Dev for fix
+                      └─ Dev fixes + rebuilds → Reviewer re-checks
+                           └─ (repeat up to 3 review cycles)
 ```
 
-Safeguards: max 5 delegation depth, max 20 total delegations, budget of 5 rounds. Delegation is blocked in all phases except EXECUTE.
+**Roles in execute phase:**
+
+| Role | Responsibility | Output format |
+|------|---------------|---------------|
+| **Developer** | Write code, build, self-fix build errors | `STATUS`, `FILES_CHANGED`, `ENTRY_FILE` or `PREVIEW_CMD`+`PREVIEW_PORT` |
+| **Code Reviewer** | Check correctness, find real bugs | `VERDICT` (PASS/FAIL), `ISSUES`, `SUGGESTIONS` |
+| **Team Lead** | Coordinate, delegate, never write code | `@Name: task` delegations, `FINAL SUMMARY` |
+
+**Dev must produce a previewable deliverable** — one of:
+- **Type A (static)**: HTML file or framework build output (`dist/index.html`). Dev runs `npm run build` and fixes errors until it succeeds.
+- **Type B (command)**: A start command + port (e.g., `python app.py` on port 5000). System runs it automatically.
+
+**Project directory**: On "Approve Plan", the system creates a unique directory (e.g., `match-3-game/`, or `match-3-game-2/` if it exists). All team members work in this shared directory.
+
+**Safeguards**: max 5 delegation depth, max 20 total delegations, 7-round budget, 3 review cycles max, 10-round hard ceiling. Delegation is blocked in all phases except EXECUTE.
+
+### Preview
+
+The system supports three preview modes, chosen automatically:
+
+| Type | Example | How it works |
+|------|---------|-------------|
+| **Static HTML** | Plain HTML/CSS/JS | `npx serve` on port 9100 |
+| **Build output** | Vite/React `dist/` | Dev runs `npm run build`, system serves `dist/index.html` |
+| **Running process** | Python Flask, Node Express | System runs `PREVIEW_CMD` on `PREVIEW_PORT` |
+
+Preview is served from the dev's last successful build. Fix iterations update the preview automatically.
 
 ## Agent Presets
 
@@ -184,8 +212,7 @@ Safeguards: max 5 delegation depth, max 20 total delegations, budget of 5 rounds
 | Mia | Backend Dev | Formal, professional |
 | Leo | Fullstack Dev | Aggressive, action-first |
 | Sophie | Code Reviewer | Patient, mentor-like |
-| Yuki | QA / Tester | Concise, no fluff |
-| Marcus | Architect | Formal, strategic |
+| Marcus | Architect / Lead | Formal, strategic |
 
 ## Inspiration
 

@@ -58,7 +58,10 @@ export const CreateTeamCommand = z.object({
 
 export const ServePreviewCommand = z.object({
   type: z.literal("SERVE_PREVIEW"),
-  filePath: z.string(),
+  filePath: z.string().optional(),
+  previewCmd: z.string().optional(),
+  previewPort: z.number().optional(),
+  cwd: z.string().optional(),
 });
 
 export const StopTeamCommand = z.object({

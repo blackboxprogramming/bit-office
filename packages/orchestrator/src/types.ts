@@ -20,6 +20,8 @@ export interface TaskResultPayload {
   previewPath?: string;
   entryFile?: string;
   projectDir?: string;
+  previewCmd?: string;
+  previewPort?: number;
   tokenUsage?: { inputTokens: number; outputTokens: number };
 }
 

@@ -237,9 +237,23 @@ function ConfettiOverlay() {
   );
 }
 
-function CelebrationModal({ previewUrl, previewPath, onPreview, onDismiss }: {
+/** Build a SERVE_PREVIEW command from result fields */
+function buildPreviewCommand(result: { previewPath?: string; previewCmd?: string; previewPort?: number; projectDir?: string }) {
+  if (result.previewCmd && result.previewPort) {
+    return { type: "SERVE_PREVIEW" as const, previewCmd: result.previewCmd, previewPort: result.previewPort, cwd: result.projectDir };
+  }
+  if (result.previewPath) {
+    return { type: "SERVE_PREVIEW" as const, filePath: result.previewPath };
+  }
+  return null;
+}
+
+function CelebrationModal({ previewUrl, previewPath, onPreview, onDismiss, previewCmd, previewPort, projectDir }: {
   previewUrl?: string;
   previewPath?: string;
+  previewCmd?: string;
+  previewPort?: number;
+  projectDir?: string;
   onPreview: (url: string) => void;
   onDismiss: () => void;
 }) {
@@ -267,9 +281,8 @@ function CelebrationModal({ previewUrl, previewPath, onPreview, onDismiss }: {
           {previewUrl && (
             <button
               onClick={() => {
-                if (previewPath) {
-                  sendCommand({ type: "SERVE_PREVIEW", filePath: previewPath });
-                }
+                const cmd = buildPreviewCommand({ previewPath, previewCmd, previewPort, projectDir });
+                if (cmd) sendCommand(cmd);
                 onPreview(previewUrl);
               }}
               style={{
@@ -626,9 +639,8 @@ function MessageBubble({ msg, onPreview, isTeamLead, isTeamMember, teamPhase }: 
             }}>
               <button
                 onClick={() => {
-                  if (r.previewPath) {
-                    sendCommand({ type: "SERVE_PREVIEW", filePath: r.previewPath });
-                  }
+                  const cmd = buildPreviewCommand(r);
+                  if (cmd) sendCommand(cmd);
                   onPreview(r.previewUrl!);
                 }}
                 style={{
@@ -721,9 +733,8 @@ function MessageBubble({ msg, onPreview, isTeamLead, isTeamMember, teamPhase }: 
         && (
           <button
             onClick={() => {
-              if (msg.result!.previewPath) {
-                sendCommand({ type: "SERVE_PREVIEW", filePath: msg.result!.previewPath });
-              }
+              const cmd = buildPreviewCommand(msg.result!);
+              if (cmd) sendCommand(cmd);
               onPreview(msg.result!.previewUrl!);
             }}
             style={{
@@ -1058,7 +1069,7 @@ export default function OfficePage() {
   const { agents, connected, addUserMessage, teamMessages, clearTeamMessages, teamPhases } = useOfficeStore();
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [celebration, setCelebration] = useState<{ previewUrl?: string; previewPath?: string } | null>(null);
+  const [celebration, setCelebration] = useState<{ previewUrl?: string; previewPath?: string; previewCmd?: string; previewPort?: number; projectDir?: string } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const { confirm, modal: confirmModal } = useConfirm();
   const [showHireModal, setShowHireModal] = useState(false);
@@ -1118,7 +1129,7 @@ export default function OfficePage() {
         // Team leader → only celebrate when isFinalResult is explicitly true
         if (agentState.isTeamLead && !msg.isFinalResult) continue;
         // Solo agent or leader with isFinalResult → celebrate
-        setCelebration({ previewUrl: r.previewUrl, previewPath: r.previewPath });
+        setCelebration({ previewUrl: r.previewUrl, previewPath: r.previewPath, previewCmd: r.previewCmd, previewPort: r.previewPort, projectDir: r.projectDir });
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3000);
       }
@@ -2323,6 +2334,9 @@ export default function OfficePage() {
         <CelebrationModal
           previewUrl={celebration.previewUrl}
           previewPath={celebration.previewPath}
+          previewCmd={celebration.previewCmd}
+          previewPort={celebration.previewPort}
+          projectDir={celebration.projectDir}
           onPreview={(url) => { setPreviewUrl(url); setCelebration(null); setShowConfetti(false); }}
           onDismiss={() => { setCelebration(null); setShowConfetti(false); }}
         />

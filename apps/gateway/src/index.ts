@@ -117,6 +117,12 @@ function mapOrchestratorEvent(e: OrchestratorEvent): GatewayEvent | null {
       if (resultText && /\[PLAN\]/i.test(resultText)) {
         for (const [teamId, tp] of teamPhases) {
           if (tp.leadAgentId === e.agentId && tp.phase === "create") {
+            // Capture the plan output as originalTask so design-phase feedback has context
+            const planOutput = e.result?.fullOutput ?? e.result?.summary ?? "";
+            if (planOutput) {
+              orc.setOriginalTask(e.agentId, planOutput);
+              console.log(`[Gateway] Captured plan from create phase (${planOutput.length} chars) for design context`);
+            }
             publishTeamPhase(teamId, "design", e.agentId);
             break;
           }
@@ -252,9 +258,14 @@ function handleCommand(parsed: Command) {
       break;
     }
     case "SERVE_PREVIEW": {
-      const filePath = parsed.filePath;
-      console.log(`[Gateway] SERVE_PREVIEW: ${filePath}`);
-      previewServer.serve(filePath);
+      if (parsed.previewCmd && parsed.previewPort) {
+        const cwd = parsed.cwd ?? config.defaultWorkspace;
+        console.log(`[Gateway] SERVE_PREVIEW (cmd): "${parsed.previewCmd}" port=${parsed.previewPort} cwd=${cwd}`);
+        previewServer.runCommand(parsed.previewCmd, cwd, parsed.previewPort);
+      } else if (parsed.filePath) {
+        console.log(`[Gateway] SERVE_PREVIEW (static): ${parsed.filePath}`);
+        previewServer.serve(parsed.filePath);
+      }
       break;
     }
     case "OPEN_FILE": {

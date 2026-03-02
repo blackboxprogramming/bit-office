@@ -49,6 +49,8 @@ export const TaskResultPayload = z.object({
   previewPath: z.string().optional(),
   entryFile: z.string().optional(),
   projectDir: z.string().optional(),
+  previewCmd: z.string().optional(),
+  previewPort: z.number().optional(),
   tokenUsage: TokenUsage.optional(),
 });
 

@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { existsSync } from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
 import { AgentSession } from "./agent-session.js";
@@ -192,8 +193,9 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
 
     // User-initiated task on team lead: store original task + reset delegation counters
     if (this.agentManager.isTeamLead(agentId) && !this.delegationRouter.isDelegated(taskId)) {
-      // Don't overwrite originalTask if it was pre-set (e.g. approved plan captured before execute)
-      if (!session.originalTask || !opts?.phaseOverride || opts.phaseOverride !== "execute") {
+      // Don't overwrite originalTask if it was pre-set (e.g. plan captured during create→design, or approved plan before execute)
+      // In design/complete phases, originalTask holds the plan — user feedback is just the prompt, not a replacement.
+      if (!session.originalTask || !opts?.phaseOverride || (opts.phaseOverride !== "execute" && opts.phaseOverride !== "design" && opts.phaseOverride !== "complete")) {
         session.originalTask = prompt;
       }
       // Preserve team project dir across execute cycles (set by gateway before runTask)
@@ -353,11 +355,18 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
     if (session) session.originalTask = task;
   }
 
-  /** Clear leader conversation history for a fresh project cycle. */
+  /** Clear ALL team members' conversation history for a fresh project cycle. */
   clearLeaderHistory(agentId: string): void {
     const session = this.agentManager.get(agentId);
     if (session) {
+      // Clear leader
       session.clearHistory();
+      // Clear ALL team members (workers keep stale session IDs from previous project)
+      for (const agent of this.agentManager.getAll()) {
+        if (agent.agentId !== agentId) {
+          agent.clearHistory();
+        }
+      }
       this.delegationRouter.clearAll();
       this.teamPreview = null;
       this.teamChangedFiles.clear();
@@ -457,12 +466,11 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
         }
       }
 
-      // Capture preview from dev workers as soon as they complete.
-      // Only dev workers (not QA, not reviewer, not leader) should set preview.
-      // First valid preview wins — don't overwrite with later workers.
-      if (!this.agentManager.isTeamLead(agentId) && !this.teamPreview) {
+      // Capture preview from dev workers (not reviewer, not leader).
+      // Always update — later fix iterations may produce a newer/fixed build.
+      if (!this.agentManager.isTeamLead(agentId)) {
         const role = session?.role?.toLowerCase() ?? "";
-        const isDevWorker = !role.includes("qa") && !role.includes("tester") && !role.includes("review");
+        const isDevWorker = !role.includes("review");
         if (isDevWorker && event.result?.previewUrl) {
           this.teamPreview = {
             previewUrl: event.result.previewUrl,
@@ -486,7 +494,15 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
         const budgetForced = this.delegationRouter.isBudgetExhausted()
           && !this.delegationRouter.hasPendingFrom(agentId);
 
-        const shouldFinalize = (leaderDidNotDelegateNewWork || budgetForced) && !this.teamFinalized;
+        // Don't finalize if any worker is still actively working (safety timeout may have
+        // flushed partial results while QA/reviewer is still running)
+        const hasWorkingWorkers = this.agentManager.getAll().some(w =>
+          w.agentId !== agentId && w.status === "working"
+        );
+        if (hasWorkingWorkers && !budgetForced) {
+          console.log(`[Orchestrator] Deferring finalization — workers still running`);
+        }
+        const shouldFinalize = (leaderDidNotDelegateNewWork || budgetForced) && !this.teamFinalized && (!hasWorkingWorkers || budgetForced);
 
         if (shouldFinalize) {
           this.teamFinalized = true;
@@ -521,15 +537,26 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
             }
           }
 
-          // Fallback: use leader's ENTRY_FILE as preview (leader parses it from its own output)
+          // Fallback: leader's PREVIEW_CMD (for Python/Node apps)
+          if (!event.result?.previewUrl && event.result?.previewCmd && event.result.previewPort) {
+            const projectDir = this.delegationRouter.getTeamProjectDir() ?? this.workspace;
+            const url = previewServer.runCommand(event.result.previewCmd, projectDir, event.result.previewPort);
+            if (url) {
+              event.result.previewUrl = url;
+              console.log(`[Orchestrator] Preview from leader PREVIEW_CMD: ${url}`);
+            }
+          }
+
+          // Fallback: leader's ENTRY_FILE (static HTML)
           if (!event.result?.previewUrl && event.result?.entryFile) {
             const entryFile = event.result.entryFile;
             if (/\.html?$/i.test(entryFile)) {
+              const projectDir = this.delegationRouter.getTeamProjectDir() ?? this.workspace;
               const absPath = path.isAbsolute(entryFile)
                 ? entryFile
                 : path.join(event.result.projectDir
                     ? path.resolve(this.workspace, event.result.projectDir)
-                    : this.workspace, entryFile);
+                    : projectDir, entryFile);
               const url = previewServer.serve(absPath);
               if (url) {
                 event.result.previewUrl = url;
@@ -549,6 +576,27 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
                 event.result.previewUrl = url;
                 event.result.previewPath = absPath;
                 console.log(`[Orchestrator] Preview from teamChangedFiles: ${url}`);
+              }
+            }
+          }
+
+          // Last resort: scan project directory for common build output (Vite, CRA, etc.)
+          if (!event.result?.previewUrl && event.result) {
+            const projectDir = this.delegationRouter.getTeamProjectDir() ?? this.workspace;
+            const candidates = [
+              "dist/index.html", "build/index.html", "out/index.html",   // common build dirs
+              "index.html", "public/index.html",                          // static projects
+            ];
+            for (const candidate of candidates) {
+              const absPath = path.join(projectDir, candidate);
+              if (existsSync(absPath)) {
+                const url = previewServer.serve(absPath);
+                if (url) {
+                  event.result.previewUrl = url;
+                  event.result.previewPath = absPath;
+                  console.log(`[Orchestrator] Preview from project scan: ${absPath}`);
+                  break;
+                }
               }
             }
           }

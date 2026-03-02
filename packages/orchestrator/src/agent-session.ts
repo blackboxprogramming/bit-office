@@ -435,7 +435,7 @@ export class AgentSession {
             this.hasHistory = true;
             saveSessionId(this.agentId, this.sessionId);
 
-            const { summary, fullOutput, changedFiles, entryFile, projectDir } = this.extractResult();
+            const { summary, fullOutput, changedFiles, entryFile, projectDir, previewCmd, previewPort } = this.extractResult();
             this._lastFullOutput = fullOutput;
 
             // Preview detection: skip for team leads (they don't create files).
@@ -453,7 +453,7 @@ export class AgentSession {
               type: "task:done",
               agentId: this.agentId,
               taskId: completedTaskId,
-              result: { summary, fullOutput, changedFiles, diffStat: "", testResult: "unknown", previewUrl, previewPath, entryFile, projectDir, tokenUsage },
+              result: { summary, fullOutput, changedFiles, diffStat: "", testResult: "unknown", previewUrl, previewPath, entryFile, projectDir, previewCmd, previewPort, tokenUsage },
             });
             this.onTaskComplete?.(this.agentId, completedTaskId, summary, true);
             this.idleTimer = setTimeout(() => { this.idleTimer = null; this.setStatus("idle"); }, 5000);
@@ -516,48 +516,71 @@ export class AgentSession {
    * Called directly for workers; called by orchestrator for leader's final result.
    */
   detectPreview(): { previewUrl: string | undefined; previewPath: string | undefined } {
-    // 1) Explicit PREVIEW: http://... line
-    const previewMatch = this.stdoutBuffer.match(/PREVIEW:\s*(https?:\/\/[^\s*)\]>]+)/i);
-    let previewUrl = previewMatch?.[1]?.replace(/[*)\]>]+$/, "");
+    const result = this.extractResult();
+    const cwd = this.currentCwd ?? this.workspace;
+    let previewUrl: string | undefined;
     let previewPath: string | undefined;
 
-    // 2) Any http://localhost mention in output
-    if (!previewUrl) {
-      const localhostMatch = this.stdoutBuffer.match(/https?:\/\/localhost[:\d]*/);
-      previewUrl = localhostMatch?.[0];
+    // 1) PREVIEW_CMD: run a command (Python Flask, Node Express, etc.)
+    if (result.previewCmd && result.previewPort) {
+      previewUrl = previewServer.runCommand(result.previewCmd, cwd, result.previewPort);
+      if (previewUrl) return { previewUrl, previewPath: undefined };
     }
 
-    // 3) .html file path mentioned in output (SUMMARY, FILES_CHANGED, or prose)
-    if (!previewUrl) {
-      const fileMatch = this.stdoutBuffer.match(/(?:open\s+)?((?:\/[\w./_-]+|[\w./_-]+)\.html?)\b/i);
-      if (fileMatch) {
-        previewPath = path.isAbsolute(fileMatch[1])
-          ? fileMatch[1]
-          : path.join(this.currentCwd ?? this.workspace, fileMatch[1]);
+    // 2) ENTRY_FILE from structured output (e.g. "dist/index.html")
+    if (result.entryFile && /\.html?$/i.test(result.entryFile)) {
+      previewPath = path.isAbsolute(result.entryFile)
+        ? result.entryFile
+        : path.join(cwd, result.entryFile);
+      if (existsSync(previewPath)) {
         previewUrl = previewServer.serve(previewPath);
+        if (previewUrl) return { previewUrl, previewPath };
       }
     }
 
-    // 4) Fallback: look for .html in changedFiles (worker may have modified but not mentioned it)
-    if (!previewUrl) {
-      const { changedFiles } = this.extractResult();
-      const htmlFile = changedFiles.find(f => /\.html?$/i.test(f));
-      if (htmlFile) {
-        previewPath = path.isAbsolute(htmlFile)
-          ? htmlFile
-          : path.join(this.currentCwd ?? this.workspace, htmlFile);
-        previewUrl = previewServer.serve(previewPath);
+    // 3) Explicit PREVIEW: http://... in output
+    const previewMatch = this.stdoutBuffer.match(/PREVIEW:\s*(https?:\/\/[^\s*)\]>]+)/i);
+    if (previewMatch) {
+      return { previewUrl: previewMatch[1].replace(/[*)\]>]+$/, ""), previewPath: undefined };
+    }
+
+    // 4) .html file path mentioned in output text
+    const fileMatch = this.stdoutBuffer.match(/(?:open\s+)?((?:\/[\w./_-]+|[\w./_-]+)\.html?)\b/i);
+    if (fileMatch) {
+      previewPath = path.isAbsolute(fileMatch[1]) ? fileMatch[1] : path.join(cwd, fileMatch[1]);
+      previewUrl = previewServer.serve(previewPath);
+      if (previewUrl) return { previewUrl, previewPath };
+    }
+
+    // 5) .html in changedFiles
+    const htmlFile = result.changedFiles.find(f => /\.html?$/i.test(f));
+    if (htmlFile) {
+      previewPath = path.isAbsolute(htmlFile) ? htmlFile : path.join(cwd, htmlFile);
+      previewUrl = previewServer.serve(previewPath);
+      if (previewUrl) return { previewUrl, previewPath };
+    }
+
+    // 6) Scan cwd for common build output (dist/index.html, build/index.html, etc.)
+    const candidates = [
+      "dist/index.html", "build/index.html", "out/index.html",
+      "index.html", "public/index.html",
+    ];
+    for (const candidate of candidates) {
+      const absPath = path.join(cwd, candidate);
+      if (existsSync(absPath)) {
+        previewUrl = previewServer.serve(absPath);
+        if (previewUrl) return { previewUrl, previewPath: absPath };
       }
     }
 
-    return { previewUrl, previewPath };
+    return { previewUrl: undefined, previewPath: undefined };
   }
 
   /**
    * Parse stdoutBuffer for structured result (SUMMARY/STATUS/FILES_CHANGED).
    * Falls back to a cleaned-up excerpt of the raw output.
    */
-  private extractResult(): { summary: string; fullOutput: string; changedFiles: string[]; entryFile?: string; projectDir?: string } {
+  private extractResult(): { summary: string; fullOutput: string; changedFiles: string[]; entryFile?: string; projectDir?: string; previewCmd?: string; previewPort?: number } {
     const raw = this.stdoutBuffer || this._lastResultText || "";
     const fullOutput = raw.slice(0, 3000);
 
@@ -566,6 +589,8 @@ export class AgentSession {
     const filesMatch = raw.match(/FILES_CHANGED:\s*(.+)/i);
     const entryFileMatch = raw.match(/ENTRY_FILE:\s*(.+)/i);
     const projectDirMatch = raw.match(/PROJECT_DIR:\s*(.+)/i);
+    const previewCmdMatch = raw.match(/PREVIEW_CMD:\s*(.+)/i);
+    const previewPortMatch = raw.match(/PREVIEW_PORT:\s*(\d+)/i);
 
     const changedFiles: string[] = [];
     if (filesMatch) {
@@ -578,9 +603,11 @@ export class AgentSession {
 
     const entryFile = entryFileMatch?.[1]?.trim();
     const projectDir = projectDirMatch?.[1]?.trim();
+    const previewCmd = previewCmdMatch?.[1]?.trim();
+    const previewPort = previewPortMatch ? parseInt(previewPortMatch[1], 10) : undefined;
 
     if (summaryMatch) {
-      return { summary: summaryMatch[1].trim(), fullOutput, changedFiles, entryFile, projectDir };
+      return { summary: summaryMatch[1].trim(), fullOutput, changedFiles, entryFile, projectDir, previewCmd, previewPort };
     }
 
     // No structured SUMMARY — extract the most meaningful part
@@ -690,6 +717,7 @@ export class AgentSession {
     this._lastResult = null;
     this._lastResultText = null;
     this._lastFullOutput = null;
+    this.setStatus("idle");
     saveSessionId(this.agentId, null);
   }
 

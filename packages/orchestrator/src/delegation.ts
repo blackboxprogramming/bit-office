@@ -7,8 +7,9 @@ import type { OrchestratorEvent } from "./types.js";
 
 const MAX_DELEGATION_DEPTH = 5;
 const MAX_TOTAL_DELEGATIONS = 20;
-const DELEGATION_BUDGET_ROUNDS = 5;
+const DELEGATION_BUDGET_ROUNDS = 7;
 const HARD_CEILING_ROUNDS = 10;
+const MAX_REVIEW_ROUNDS = 3;
 // Longer batch window so parallel QA + CodeReview results arrive together in one leader round.
 // If QA finishes but CodeReview is still running, wait up to 20s before flushing partial results.
 const RESULT_BATCH_WINDOW_MS = 20_000;
@@ -30,6 +31,8 @@ export class DelegationRouter {
   private totalDelegations = 0;
   /** How many times the leader has been invoked to process results */
   private leaderRounds = 0;
+  /** How many times a Code Reviewer result has been forwarded to the leader */
+  private reviewCount = 0;
   /** When true, all new delegations and result forwarding are blocked */
   private stopped = false;
   /** TaskIds created by flushResults — only these can produce a final result */
@@ -82,7 +85,7 @@ export class DelegationRouter {
    * if the current task is not a "resultTask" (safety net for convergence).
    */
   isBudgetExhausted(): boolean {
-    return this.leaderRounds >= DELEGATION_BUDGET_ROUNDS;
+    return this.leaderRounds >= DELEGATION_BUDGET_ROUNDS || this.reviewCount >= MAX_REVIEW_ROUNDS;
   }
 
   /**
@@ -151,6 +154,7 @@ export class DelegationRouter {
     this.delegationsAtResultStart.clear();
     this.totalDelegations = 0;
     this.leaderRounds = 0;
+    this.reviewCount = 0;
     this.stopped = false;
     this.teamProjectDir = null;
     for (const pending of this.pendingResults.values()) {
@@ -170,8 +174,8 @@ export class DelegationRouter {
         return;
       }
 
-      if (this.leaderRounds >= DELEGATION_BUDGET_ROUNDS) {
-        console.log(`[Delegation] BLOCKED: delegation budget exhausted (round ${this.leaderRounds}/${DELEGATION_BUDGET_ROUNDS})`);
+      if (this.isBudgetExhausted()) {
+        console.log(`[Delegation] BLOCKED: budget exhausted (leaderRounds=${this.leaderRounds}/${DELEGATION_BUDGET_ROUNDS}, reviewCount=${this.reviewCount}/${MAX_REVIEW_ROUNDS})`);
         return;
       }
 
@@ -349,6 +353,15 @@ export class DelegationRouter {
 
     this.leaderRounds++;
 
+    // Count reviewer results for precise iteration tracking
+    for (const r of pending.results) {
+      const agent = this.agentManager.findByName(r.fromName);
+      if (agent && agent.role.toLowerCase().includes("review")) {
+        this.reviewCount++;
+        console.log(`[ResultBatch] Reviewer result detected (reviewCount=${this.reviewCount})`);
+      }
+    }
+
     // Hard ceiling: force-complete instead of silently returning
     if (this.leaderRounds > HARD_CEILING_ROUNDS) {
       console.log(`[ResultBatch] Hard ceiling reached (${HARD_CEILING_ROUNDS} rounds). Force-completing.`);
@@ -384,12 +397,15 @@ export class DelegationRouter {
     // Build round guidance for the leader prompt
     let roundInfo: string;
     const budgetExhausted = this.leaderRounds >= DELEGATION_BUDGET_ROUNDS;
-    if (budgetExhausted) {
-      roundInfo = `DELEGATION BUDGET REACHED (round ${this.leaderRounds}). No more delegations will be accepted. You MUST summarize the current results and report to the user NOW. Accept the work as-is — the user can request improvements later.`;
-    } else if (this.leaderRounds >= DELEGATION_BUDGET_ROUNDS - 1) {
-      roundInfo = `Round ${this.leaderRounds}/${DELEGATION_BUDGET_ROUNDS} — LAST delegation round. Only delegate if something is critically broken. Prefer to accept and summarize.`;
+    const reviewExhausted = this.reviewCount >= MAX_REVIEW_ROUNDS;
+    if (budgetExhausted || reviewExhausted) {
+      roundInfo = reviewExhausted
+        ? `REVIEW LIMIT REACHED (${this.reviewCount}/${MAX_REVIEW_ROUNDS} reviews). No more fix iterations. Output your FINAL SUMMARY now — accept the work as-is.`
+        : `BUDGET REACHED (round ${this.leaderRounds}/${DELEGATION_BUDGET_ROUNDS}). No more delegations allowed. Output your FINAL SUMMARY now.`;
+    } else if (this.reviewCount > 0) {
+      roundInfo = `Round ${this.leaderRounds}/${DELEGATION_BUDGET_ROUNDS} | Review ${this.reviewCount}/${MAX_REVIEW_ROUNDS} (fix iteration ${this.reviewCount})`;
     } else {
-      roundInfo = `Round ${this.leaderRounds}/${DELEGATION_BUDGET_ROUNDS}`;
+      roundInfo = `Round ${this.leaderRounds}/${DELEGATION_BUDGET_ROUNDS} | No reviews yet`;
     }
 
     const resultLines = pending.results.map(r =>
