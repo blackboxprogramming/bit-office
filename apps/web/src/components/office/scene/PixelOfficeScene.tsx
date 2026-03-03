@@ -1,37 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { useOfficeStore } from "@/store/office-store";
-import { OfficeState } from "./engine/officeState";
-import { startGameLoop } from "./engine/gameLoop";
-import { renderFrame } from "./engine/renderer";
-import type { EditorRenderState } from "./engine/renderer";
-import { EditTool } from "./types";
-import { TILE_SIZE, ZOOM_MIN, ZOOM_MAX, ZOOM_SCROLL_THRESHOLD } from "./constants";
-import { loadAllAssets } from "./sprites/assetLoader";
-import { registerTilesetSprites, getCatalogEntry, isRotatable } from "./layout/furnitureCatalog";
-import { EditorState } from "./editor/editorState";
-import { getFurnitureAtTile } from "./editor/editorActions";
+import { OfficeState } from "../engine/officeState";
+import { startGameLoop } from "../engine/gameLoop";
+import { renderFrame } from "../engine/renderer";
+import type { EditorRenderState } from "../engine/renderer";
+import { EditTool } from "../types";
+import { TILE_SIZE, ZOOM_MIN, ZOOM_MAX } from "../constants";
+import { loadAllAssets } from "../sprites/assetLoader";
+import { registerTilesetSprites, getCatalogEntry, isRotatable } from "../layout/furnitureCatalog";
+import { EditorState } from "../editor/editorState";
+import { getFurnitureAtTile } from "../editor/editorActions";
+import type { SceneComponentProps } from "./SceneAdapter";
+import { PixelSceneAdapter } from "./PixelSceneAdapter";
 
-/** Agent type colors for name badges */
-const AGENT_TYPE_COLORS = {
-  external: "#5aacff",
-  team: "#d4a017",
-  normal: "#8a7a6a",
-};
-
-function getAgentLabel(agent: { name: string; isExternal?: boolean; pid?: number; teamId?: string }): { label: string; color: string } {
-  if (agent.isExternal) {
-    return { label: `${agent.pid ?? "?"}`, color: AGENT_TYPE_COLORS.external };
-  }
-  const short = agent.name.split(/[\s(]/)[0];
-  const color = agent.teamId ? AGENT_TYPE_COLORS.team : AGENT_TYPE_COLORS.normal;
-  return { label: short, color };
-}
-
-interface OfficeCanvasProps {
-  onAgentClick: (agentId: string) => void;
-  selectedAgent: string | null;
+export interface PixelOfficeSceneProps extends SceneComponentProps {
   editMode: boolean;
   editorRef: React.MutableRefObject<EditorState>;
   onTileClick?: (col: number, row: number) => void;
@@ -42,15 +25,15 @@ interface OfficeCanvasProps {
   onDragEnd?: (col: number, row: number) => void;
   onDeleteBtnClick?: () => void;
   onRotateBtnClick?: () => void;
-  stateRef: React.MutableRefObject<OfficeState | null>;
+  officeStateRef: React.MutableRefObject<OfficeState | null>;
   onAssetsLoaded?: () => void;
   zoomRef: React.MutableRefObject<number>;
   panRef: React.MutableRefObject<{ x: number; y: number }>;
 }
 
-export default function OfficeCanvas({
+export default function PixelOfficeScene({
+  onAdapterReady,
   onAgentClick,
-  selectedAgent,
   editMode,
   editorRef,
   onTileClick,
@@ -61,19 +44,14 @@ export default function OfficeCanvas({
   onDragEnd,
   onDeleteBtnClick,
   onRotateBtnClick,
-  stateRef,
+  officeStateRef,
   onAssetsLoaded,
   zoomRef,
   panRef,
-}: OfficeCanvasProps) {
+}: PixelOfficeSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const stopLoopRef = useRef<(() => void) | null>(null);
-  const knownAgentsRef = useRef<Set<string>>(new Set());
-  const prevMsgCountRef = useRef<Map<string, number>>(new Map());
-  const prevLogLineRef = useRef<Map<string, string | null>>(new Map());
-  const prevTeamMsgCountRef = useRef(0);
   const [assetsLoaded, setAssetsLoaded] = useState(false);
-  const loadedLayoutRef = useRef<import('./types').OfficeLayout | null>(null);
+  const loadedLayoutRef = useRef<import('../types').OfficeLayout | null>(null);
 
   // Stable callback refs
   const onAgentClickRef = useRef(onAgentClick);
@@ -85,17 +63,16 @@ export default function OfficeCanvas({
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const lastOffsetsRef = useRef({ offsetX: 0, offsetY: 0 });
-  const scrollAccRef = useRef(0);
   const editorRenderRef = useRef<EditorRenderState | null>(null);
 
   /** Calculate zoom so the map fills the viewport (contain fit) */
   const calcFitZoom = useCallback((viewW: number, viewH: number) => {
-    const office = stateRef.current;
+    const office = officeStateRef.current;
     if (!office) return 4;
     const mapW = office.layout.cols * TILE_SIZE;
     const mapH = office.layout.rows * TILE_SIZE;
     return Math.max(ZOOM_MIN, Math.floor(Math.min(viewW / mapW, viewH / mapH)));
-  }, [stateRef]);
+  }, [officeStateRef]);
 
   // Resize handler
   const resizeCanvas = useCallback(() => {
@@ -131,7 +108,7 @@ export default function OfficeCanvas({
         onAssetsLoaded?.();
       })
       .catch((err) => {
-        console.warn("[OfficeCanvas] Asset loading failed, using fallbacks:", err);
+        console.warn("[PixelOfficeScene] Asset loading failed, using fallbacks:", err);
         if (!cancelled) {
           setAssetsLoaded(true);
           onAssetsLoaded?.();
@@ -148,25 +125,11 @@ export default function OfficeCanvas({
 
     // Init state (use loaded layout JSON if available)
     const officeState = new OfficeState(loadedLayoutRef.current ?? undefined);
-    stateRef.current = officeState;
+    officeStateRef.current = officeState;
 
     // Setup canvas size
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
-
-    // Sync existing agents from store
-    const state = useOfficeStore.getState();
-    for (const [agentId, agent] of state.agents) {
-      const { label, color: labelColor } = getAgentLabel(agent);
-      officeState.addCharacter(agentId, agent.name, agent.palette, agent.isExternal, label, labelColor);
-      officeState.updateCharacterStatus(agentId, agent.status);
-      knownAgentsRef.current.add(agentId);
-      // Seed message counts so persisted messages don't trigger speech bubbles
-      prevMsgCountRef.current.set(agentId, agent.messages.length);
-      prevLogLineRef.current.set(agentId, agent.lastLogLine ?? null);
-    }
-    // Seed team message count so old team messages don't replay as bubbles
-    prevTeamMsgCountRef.current = state.teamMessages.length;
 
     // Start game loop
     const dpr = window.devicePixelRatio || 1;
@@ -259,93 +222,17 @@ export default function OfficeCanvas({
         editorRenderRef.current = editorRenderState ?? null;
       },
     });
-    stopLoopRef.current = stop;
+
+    // Create adapter and notify parent
+    const adapter = new PixelSceneAdapter(officeState, stop);
+    onAdapterReady(adapter);
 
     return () => {
-      stop();
-      stopLoopRef.current = null;
-      stateRef.current = null;
-      knownAgentsRef.current.clear();
+      adapter.dispose();
+      officeStateRef.current = null;
       window.removeEventListener("resize", resizeCanvas);
     };
-  }, [assetsLoaded, resizeCanvas, stateRef, zoomRef, panRef, editorRef]);
-
-  // Subscribe to Zustand store changes
-  useEffect(() => {
-    const unsub = useOfficeStore.subscribe((state) => {
-      const officeState = stateRef.current;
-      if (!officeState) return;
-
-      const currentIds = new Set(state.agents.keys());
-
-      for (const [agentId, agent] of state.agents) {
-        if (!knownAgentsRef.current.has(agentId)) {
-          const { label, color: labelColor } = getAgentLabel(agent);
-          officeState.addCharacter(agentId, agent.name, agent.palette, agent.isExternal, label, labelColor);
-          knownAgentsRef.current.add(agentId);
-        }
-
-        officeState.updateCharacterStatus(agentId, agent.status);
-
-        if (agent.pendingApproval) {
-          officeState.showBubble(agentId, "permission");
-        } else if (agent.status === "working") {
-          officeState.showBubble(agentId, "working");
-        } else if (agent.status === "done") {
-          officeState.showBubble(agentId, "waiting");
-        } else if (agent.status === "error") {
-          officeState.showBubble(agentId, "waiting");
-        } else {
-          officeState.clearBubble(agentId);
-        }
-
-        // Detect new agent messages → show speech bubble
-        const prevCount = prevMsgCountRef.current.get(agentId) ?? 0;
-        const curCount = agent.messages.length;
-        if (curCount > prevCount) {
-          const lastMsg = agent.messages[curCount - 1];
-          if (lastMsg && lastMsg.role !== "user") {
-            officeState.showSpeechBubble(agentId, lastMsg.text);
-          }
-        }
-        prevMsgCountRef.current.set(agentId, curCount);
-
-        // Detect log output → show speech bubble
-        const prevLog = prevLogLineRef.current.get(agentId);
-        if (agent.lastLogLine && agent.lastLogLine !== prevLog) {
-          officeState.showSpeechBubble(agentId, agent.lastLogLine);
-        }
-        prevLogLineRef.current.set(agentId, agent.lastLogLine);
-      }
-
-      // Detect new team chat messages → show speech bubble on sender
-      const prevTeamCount = prevTeamMsgCountRef.current;
-      if (state.teamMessages.length > prevTeamCount) {
-        for (let i = prevTeamCount; i < state.teamMessages.length; i++) {
-          const tm = state.teamMessages[i];
-          const toName = tm.toAgentName;
-          const text = toName ? `${toName}: ${tm.message}` : tm.message;
-          officeState.showSpeechBubble(tm.fromAgentId, text);
-        }
-      }
-      prevTeamMsgCountRef.current = state.teamMessages.length;
-
-      for (const agentId of knownAgentsRef.current) {
-        if (!currentIds.has(agentId)) {
-          officeState.removeCharacter(agentId);
-          knownAgentsRef.current.delete(agentId);
-          prevMsgCountRef.current.delete(agentId);
-          prevLogLineRef.current.delete(agentId);
-        }
-      }
-    });
-    return unsub;
-  }, [stateRef]);
-
-  // Sync selection
-  useEffect(() => {
-    stateRef.current?.selectCharacter(selectedAgent);
-  }, [selectedAgent, stateRef]);
+  }, [assetsLoaded, resizeCanvas, officeStateRef, zoomRef, panRef, editorRef, onAdapterReady]);
 
   // ── Mouse/Touch handlers ──────────────────────────────────────
 
@@ -387,7 +274,7 @@ export default function OfficeCanvas({
     // Editor: start drag on selected furniture
     if (editModeRef.current && editorRef.current.selectedFurnitureUid) {
       const tile = screenToTile(e.clientX, e.clientY);
-      const layout = stateRef.current?.layout;
+      const layout = officeStateRef.current?.layout;
       if (layout) {
         const fAtTile = getFurnitureAtTile(layout, tile.col, tile.row);
         if (fAtTile && fAtTile.uid === editorRef.current.selectedFurnitureUid) {
@@ -395,10 +282,10 @@ export default function OfficeCanvas({
         }
       }
     }
-  }, [panRef, editorRef, stateRef, screenToTile, onDragStart]);
+  }, [panRef, editorRef, officeStateRef, screenToTile, onDragStart]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    const officeState = stateRef.current;
+    const officeState = officeStateRef.current;
 
     // Update hover (non-edit mode)
     if (officeState && !editModeRef.current) {
@@ -425,7 +312,7 @@ export default function OfficeCanvas({
       x: panStartRef.current.panX + dx,
       y: panStartRef.current.panY + dy,
     };
-  }, [screenToWorld, screenToTile, stateRef, panRef, editorRef, onDragMove, onGhostMove]);
+  }, [screenToWorld, screenToTile, officeStateRef, panRef, editorRef, onDragMove, onGhostMove]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     const wasPanning = isPanningRef.current;
@@ -443,7 +330,7 @@ export default function OfficeCanvas({
     const dy = Math.abs(e.clientY - panStartRef.current.y);
     if (wasPanning && (dx > 5 || dy > 5)) return;
 
-    const officeState = stateRef.current;
+    const officeState = officeStateRef.current;
     if (!officeState) return;
 
     // Editor mode: tile click
@@ -484,7 +371,7 @@ export default function OfficeCanvas({
     if (agentId) {
       onAgentClickRef.current(agentId);
     }
-  }, [screenToWorld, screenToTile, stateRef, editorRef, onTileClick, onDragEnd, onDeleteBtnClick, onRotateBtnClick]);
+  }, [screenToWorld, screenToTile, officeStateRef, editorRef, onTileClick, onDragEnd, onDeleteBtnClick, onRotateBtnClick]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     if (!editModeRef.current) return;
@@ -549,7 +436,7 @@ export default function OfficeCanvas({
           const tile = screenToTile(touch.clientX, touch.clientY);
           onTileClick?.(tile.col, tile.row);
         } else {
-          const officeState = stateRef.current;
+          const officeState = officeStateRef.current;
           if (officeState) {
             const world = screenToWorld(touch.clientX, touch.clientY);
             const agentId = officeState.getAgentAtPixel(world.x, world.y);
@@ -562,7 +449,7 @@ export default function OfficeCanvas({
     }
     isPanningRef.current = false;
     touchesRef.current = Array.from(e.touches);
-  }, [screenToWorld, screenToTile, stateRef, onTileClick]);
+  }, [screenToWorld, screenToTile, officeStateRef, onTileClick]);
 
   const cursorStyle = editMode
     ? editorRef.current.activeTool === EditTool.ERASE ? "crosshair"

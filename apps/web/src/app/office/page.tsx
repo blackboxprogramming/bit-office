@@ -17,8 +17,10 @@ import { ZOOM_MIN, ZOOM_MAX } from "@/components/office/constants";
 import { useEditorActions, loadLayoutFromStorage, saveLayoutToStorage } from "@/hooks/useEditorActions";
 import { useEditorKeyboard } from "@/hooks/useEditorKeyboard";
 import { migrateLayoutColors } from "@/components/office/layout/layoutSerializer";
+import type { SceneAdapter } from "@/components/office/scene/SceneAdapter";
+import { useSceneBridge } from "@/components/office/scene/useSceneBridge";
 import dynamic from "next/dynamic";
-const OfficeCanvas = dynamic(() => import("@/components/office/OfficeCanvas"), { ssr: false });
+const PixelOfficeScene = dynamic(() => import("@/components/office/scene/PixelOfficeScene"), { ssr: false });
 const EditorToolbar = dynamic(() => import("@/components/office/editor/EditorToolbar"), { ssr: false });
 const ZoomControls = dynamic(() => import("@/components/office/ui/ZoomControls"), { ssr: false });
 const SettingsModal = dynamic(() => import("@/components/office/ui/SettingsModal"), { ssr: false });
@@ -1758,9 +1760,13 @@ export default function OfficePage() {
   const [, forceUpdate] = useState(0);
   const editorRef = useRef(new EditorState());
   const officeStateRef = useRef<OfficeState | null>(null);
+  const [sceneAdapter, setSceneAdapter] = useState<SceneAdapter | null>(null);
   const zoomRef = useRef(1);
   const panRef = useRef({ x: 0, y: 0 });
   const [assetsReady, setAssetsReady] = useState(false);
+
+  // Bridge store → scene adapter
+  useSceneBridge(sceneAdapter, selectedAgent);
 
   // Load sound preference
   useEffect(() => {
@@ -1856,6 +1862,10 @@ export default function OfficePage() {
       forceUpdate((n) => n + 1);
     }
     setAssetsReady(true);
+  }, []);
+
+  const handleAdapterReady = useCallback((adapter: SceneAdapter) => {
+    setSceneAdapter(adapter);
   }, []);
 
   useEffect(() => {
@@ -2053,12 +2063,12 @@ export default function OfficePage() {
     <div style={{ height: "100vh", width: "100vw", position: "relative", overflow: "hidden", display: "flex" }}>
       {/* Game Scene — fills remaining space */}
       <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
-        <OfficeCanvas
+        <PixelOfficeScene
+          onAdapterReady={handleAdapterReady}
           onAgentClick={handleAgentClick}
-          selectedAgent={selectedAgent}
           editMode={editMode}
           editorRef={editorRef}
-          stateRef={officeStateRef}
+          officeStateRef={officeStateRef}
           zoomRef={zoomRef}
           panRef={panRef}
           onTileClick={handleTileClick}
