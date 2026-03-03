@@ -961,19 +961,19 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: "#1e1a30", padding: "14px 14px 10px",
-          width: "90%", maxWidth: 340, border: "2px solid #3d2e54",
+          backgroundColor: "#1e1a30", padding: "18px 18px 14px",
+          width: "90%", maxWidth: 400, border: "2px solid #3d2e54",
           boxShadow: "4px 4px 0px rgba(0,0,0,0.5)",
           maxHeight: "90vh", overflowY: "auto",
         }}
       >
-        <h2 className="px-font" style={{ fontSize: 10, margin: "0 0 10px", textAlign: "center", color: "#e8b040", letterSpacing: "0.05em" }}>
+        <h2 className="px-font" style={{ fontSize: 13, margin: "0 0 12px", textAlign: "center", color: "#e8b040", letterSpacing: "0.05em" }}>
           {editAgent ? "Edit Agent" : "Create Agent"}
         </h2>
 
         {/* Avatar palette selector */}
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>AVATAR</div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>AVATAR</div>
           <div style={{ display: "flex", gap: 4 }}>
             {[0, 1, 2, 3, 4, 5].map((p) => (
               <button
@@ -992,14 +992,14 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
         </div>
 
         {/* Name */}
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 3, fontFamily: "monospace", letterSpacing: "0.05em" }}>NAME</div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>NAME</div>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Agent name"
             style={{
-              width: "100%", padding: "6px 8px", fontSize: 11, fontFamily: "monospace",
+              width: "100%", padding: "7px 10px", fontSize: 13, fontFamily: "monospace",
               border: "1px solid #3d2e54", backgroundColor: "#14112a", color: "#eddcb8",
               boxSizing: "border-box",
             }}
@@ -1007,13 +1007,13 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
         </div>
 
         {/* Role */}
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 3, fontFamily: "monospace", letterSpacing: "0.05em" }}>ROLE</div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>ROLE</div>
           <select
             value={rolePresetIndex}
             onChange={(e) => handleRoleChange(Number(e.target.value))}
             style={{
-              width: "100%", padding: "6px 8px", fontSize: 11, fontFamily: "monospace",
+              width: "100%", padding: "7px 10px", fontSize: 13, fontFamily: "monospace",
               border: "1px solid #3d2e54", backgroundColor: "#14112a", color: "#eddcb8",
               boxSizing: "border-box", cursor: "pointer",
             }}
@@ -1029,7 +1029,7 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
               onChange={(e) => setCustomRole(e.target.value)}
               placeholder="e.g. Python Expert"
               style={{
-                width: "100%", padding: "6px 8px", fontSize: 11, fontFamily: "monospace",
+                width: "100%", padding: "7px 10px", fontSize: 13, fontFamily: "monospace",
                 border: "1px solid #3d2e54", backgroundColor: "#14112a", color: "#eddcb8",
                 boxSizing: "border-box", marginTop: 4,
               }}
@@ -1038,11 +1038,11 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
         </div>
 
         {/* Skills */}
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 3, fontFamily: "monospace", letterSpacing: "0.05em" }}>SKILLS</div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>SKILLS</div>
           {/* Suggested skill chips */}
           {suggestedSkills.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
               {suggestedSkills.map((skill) => {
                 const active = selectedSkills.has(skill);
                 return (
@@ -1050,7 +1050,7 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
                     key={skill}
                     onClick={() => toggleSkill(skill)}
                     style={{
-                      padding: "3px 8px", fontSize: 10, fontFamily: "monospace",
+                      padding: "4px 10px", fontSize: 12, fontFamily: "monospace",
                       border: active ? "1px solid #e8b04080" : "1px solid #3d2e54",
                       backgroundColor: active ? "#382800" : "transparent",
                       color: active ? "#e8b040" : "#7a6858",
@@ -1066,12 +1066,12 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
             const customTags = Array.from(selectedSkills).filter((s) => !suggestedSkills.includes(s));
             if (customTags.length === 0) return null;
             return (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
                 {customTags.map((skill) => (
                   <span
                     key={skill}
                     style={{
-                      padding: "3px 8px", fontSize: 10, fontFamily: "monospace",
+                      padding: "4px 10px", fontSize: 12, fontFamily: "monospace",
                       border: "1px solid #5aacff60", backgroundColor: "#182844",
                       color: "#5aacff", display: "flex", alignItems: "center", gap: 4,
                     }}
@@ -1079,7 +1079,7 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
                     {skill}
                     <span
                       onClick={() => toggleSkill(skill)}
-                      style={{ cursor: "pointer", fontSize: 12, lineHeight: 1, color: "#5aacff80" }}
+                      style={{ cursor: "pointer", fontSize: 14, lineHeight: 1, color: "#5aacff80" }}
                     >&times;</span>
                   </span>
                 ))}
@@ -1094,7 +1094,7 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomSkill(); } }}
               placeholder="Add custom skill..."
               style={{
-                flex: 1, padding: "5px 8px", fontSize: 10, fontFamily: "monospace",
+                flex: 1, padding: "6px 10px", fontSize: 12, fontFamily: "monospace",
                 border: "1px solid #3d2e54", backgroundColor: "#14112a", color: "#eddcb8",
                 boxSizing: "border-box",
               }}
@@ -1102,7 +1102,7 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
             <button
               onClick={addCustomSkill}
               style={{
-                padding: "4px 10px", fontSize: 12, fontWeight: 700,
+                padding: "5px 12px", fontSize: 14, fontWeight: 700,
                 border: "1px solid #3d2e54", backgroundColor: "transparent",
                 color: "#7a6858", cursor: "pointer", fontFamily: "monospace",
               }}
@@ -1111,15 +1111,15 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
         </div>
 
         {/* Personality */}
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 3, fontFamily: "monospace", letterSpacing: "0.05em" }}>PERSONALITY</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>PERSONALITY</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             {PERSONALITY_PRESETS.map((p, i) => (
               <label
                 key={i}
                 style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "3px 6px",
-                  cursor: "pointer", fontSize: 10, color: personalityMode === i ? "#eddcb8" : "#7a6858",
+                  display: "flex", alignItems: "center", gap: 6, padding: "4px 6px",
+                  cursor: "pointer", fontSize: 12, color: personalityMode === i ? "#eddcb8" : "#7a6858",
                   fontFamily: "monospace",
                 }}
               >
@@ -1135,8 +1135,8 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
             ))}
             <label
               style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "3px 6px",
-                cursor: "pointer", fontSize: 10, color: personalityMode === 4 ? "#eddcb8" : "#7a6858",
+                display: "flex", alignItems: "center", gap: 6, padding: "4px 6px",
+                cursor: "pointer", fontSize: 12, color: personalityMode === 4 ? "#eddcb8" : "#7a6858",
                 fontFamily: "monospace",
               }}
             >
@@ -1156,7 +1156,7 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
                 placeholder="Describe the personality..."
                 rows={2}
                 style={{
-                  width: "100%", padding: "6px 8px", fontSize: 10, fontFamily: "monospace",
+                  width: "100%", padding: "7px 10px", fontSize: 12, fontFamily: "monospace",
                   border: "1px solid #3d2e54", backgroundColor: "#14112a", color: "#eddcb8",
                   resize: "vertical", boxSizing: "border-box", marginTop: 2,
                 }}
@@ -1170,8 +1170,8 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
           <button
             onClick={handleSave}
             style={{
-              flex: 1, padding: "8px", border: "1px solid #e8b04060",
-              backgroundColor: "#382800", color: "#e8b040", fontSize: 11,
+              flex: 1, padding: "9px", border: "1px solid #e8b04060",
+              backgroundColor: "#382800", color: "#e8b040", fontSize: 13,
               fontWeight: 700, cursor: "pointer", fontFamily: "monospace",
               opacity: name.trim() ? 1 : 0.4,
             }}
@@ -1182,9 +1182,9 @@ function CreateAgentModal({ onSave, onClose, assetsReady, editAgent }: {
           <button
             onClick={onClose}
             style={{
-              padding: "8px 14px",
+              padding: "9px 16px",
               border: "1px solid #3d2e54", backgroundColor: "transparent",
-              color: "#6a5848", fontSize: 11, cursor: "pointer", fontFamily: "monospace",
+              color: "#6a5848", fontSize: 13, cursor: "pointer", fontFamily: "monospace",
             }}
           >Cancel</button>
         </div>
@@ -1219,24 +1219,24 @@ function HireModal({ agentDefs, onHire, onCreate, onEdit, onDelete, onClose, ass
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: "#1e1a30", padding: "14px 14px 10px",
-          width: "90%", maxWidth: 340, border: "2px solid #3d2e54",
+          backgroundColor: "#1e1a30", padding: "18px 18px 14px",
+          width: "90%", maxWidth: 420, border: "2px solid #3d2e54",
           boxShadow: "4px 4px 0px rgba(0,0,0,0.5)",
           maxHeight: "90vh", overflowY: "auto",
         }}
       >
-        <h2 className="px-font" style={{ fontSize: 10, margin: "0 0 12px", textAlign: "center", color: "#e8b040", letterSpacing: "0.05em" }}>Hire Agent</h2>
+        <h2 className="px-font" style={{ fontSize: 13, margin: "0 0 14px", textAlign: "center", color: "#e8b040", letterSpacing: "0.05em" }}>Hire Agent</h2>
 
         {/* Backend selector */}
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>AI BACKEND</div>
-          <div style={{ display: "flex", gap: 3 }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 5, fontFamily: "monospace", letterSpacing: "0.05em" }}>AI BACKEND</div>
+          <div style={{ display: "flex", gap: 4 }}>
             {BACKEND_OPTIONS.map((b) => (
               <button
                 key={b.id}
                 onClick={() => setSelectedBackend(b.id)}
                 style={{
-                  flex: 1, padding: "5px 4px", fontSize: 10, fontWeight: 600,
+                  flex: 1, padding: "6px 4px", fontSize: 12, fontWeight: 600,
                   border: selectedBackend === b.id ? `1px solid ${b.color}` : "1px solid #3d2e54",
                   backgroundColor: selectedBackend === b.id ? b.color + "20" : "transparent",
                   color: selectedBackend === b.id ? b.color : "#6a5848",
@@ -1248,29 +1248,30 @@ function HireModal({ agentDefs, onHire, onCreate, onEdit, onDelete, onClose, ass
         </div>
 
         {/* Built-in agents */}
-        <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>BUILT-IN AGENTS</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 5, fontFamily: "monospace", letterSpacing: "0.05em" }}>BUILT-IN AGENTS</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 10 }}>
           {builtinAgents.map((def) => (
             <button
               key={def.id}
               onClick={() => onHire(def, selectedBackend)}
               onMouseEnter={(e) => { setHoveredId(def.id); e.currentTarget.style.borderColor = "#e8b04040"; }}
               onMouseLeave={(e) => { setHoveredId(null); e.currentTarget.style.borderColor = "#3d2e54"; }}
+              title={def.skills ? `Skills: ${def.skills}` : undefined}
               style={{
                 display: "flex", flexDirection: "column", alignItems: "center",
-                padding: "10px 6px 8px", position: "relative",
+                padding: "12px 6px 10px", position: "relative",
                 border: "1px solid #3d2e54", backgroundColor: "transparent",
                 cursor: "pointer", textAlign: "center",
                 transition: "border-color 0.15s",
               }}
             >
               <SpriteAvatar palette={def.palette} zoom={2} ready={assetsReady} />
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#eddcb8", marginTop: 6, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.name}</div>
-              <div style={{ fontSize: 9, color: "#7a6858", marginTop: 2, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.role}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#eddcb8", marginTop: 6, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.name}</div>
+              <div style={{ fontSize: 11, color: "#7a6858", marginTop: 2, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.role}</div>
               {hoveredId === def.id && (
                 <span
                   onClick={(e) => { e.stopPropagation(); onEdit(def); }}
-                  style={{ position: "absolute", top: 4, right: 4, fontSize: 12, color: "#7a6858", cursor: "pointer", padding: "2px 4px" }}
+                  style={{ position: "absolute", top: 4, right: 4, fontSize: 14, color: "#7a6858", cursor: "pointer", padding: "2px 4px" }}
                   title="Edit"
                 >&#9998;</span>
               )}
@@ -1281,35 +1282,36 @@ function HireModal({ agentDefs, onHire, onCreate, onEdit, onDelete, onClose, ass
         {/* Custom agents */}
         {customAgents.length > 0 && (
           <>
-            <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>MY AGENTS</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 5, fontFamily: "monospace", letterSpacing: "0.05em" }}>MY AGENTS</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 10 }}>
               {customAgents.map((def) => (
                 <button
                   key={def.id}
                   onClick={() => onHire(def, selectedBackend)}
                   onMouseEnter={(e) => { setHoveredId(def.id); e.currentTarget.style.borderColor = "#e8b04040"; }}
                   onMouseLeave={(e) => { setHoveredId(null); e.currentTarget.style.borderColor = "#3d2e54"; }}
+                  title={def.skills ? `Skills: ${def.skills}` : undefined}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center",
-                    padding: "10px 6px 8px", position: "relative",
+                    padding: "12px 6px 10px", position: "relative",
                     border: "1px solid #3d2e54", backgroundColor: "transparent",
                     cursor: "pointer", textAlign: "center",
                     transition: "border-color 0.15s",
                   }}
                 >
                   <SpriteAvatar palette={def.palette} zoom={2} ready={assetsReady} />
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#eddcb8", marginTop: 6, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.name}</div>
-                  <div style={{ fontSize: 9, color: "#7a6858", marginTop: 2, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.role}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#eddcb8", marginTop: 6, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.name}</div>
+                  <div style={{ fontSize: 11, color: "#7a6858", marginTop: 2, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.role}</div>
                   {hoveredId === def.id && (
                     <span style={{ position: "absolute", top: 4, right: 4, display: "flex", gap: 2, alignItems: "center" }}>
                       <span
                         onClick={(e) => { e.stopPropagation(); onEdit(def); }}
-                        style={{ fontSize: 12, color: "#7a6858", cursor: "pointer", padding: "2px 4px" }}
+                        style={{ fontSize: 14, color: "#7a6858", cursor: "pointer", padding: "2px 4px" }}
                         title="Edit"
                       >&#9998;</span>
                       <span
                         onClick={(e) => { e.stopPropagation(); onDelete(def.id); }}
-                        style={{ fontSize: 13, color: "#e04848", cursor: "pointer", padding: "2px 4px", fontWeight: 700 }}
+                        style={{ fontSize: 15, color: "#e04848", cursor: "pointer", padding: "2px 4px", fontWeight: 700 }}
                         title="Delete"
                       >&times;</span>
                     </span>
@@ -1324,17 +1326,17 @@ function HireModal({ agentDefs, onHire, onCreate, onEdit, onDelete, onClose, ass
         <button
           onClick={onCreate}
           style={{
-            width: "100%", marginBottom: 4, padding: "7px",
+            width: "100%", marginBottom: 5, padding: "9px",
             border: "1px solid #e8b04060", backgroundColor: "transparent",
-            color: "#e8b040", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "monospace",
+            color: "#e8b040", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "monospace",
           }}
         >+ Create Agent</button>
         <button
           onClick={onClose}
           style={{
-            width: "100%", padding: "7px",
+            width: "100%", padding: "9px",
             border: "1px solid #3d2e54", backgroundColor: "transparent",
-            color: "#6a5848", fontSize: 11, cursor: "pointer", fontFamily: "monospace",
+            color: "#6a5848", fontSize: 13, cursor: "pointer", fontFamily: "monospace",
           }}
         >Cancel</button>
       </div>
@@ -1638,22 +1640,13 @@ function HireTeamModal({ agentDefs, onCreateTeam, onClose, assetsReady }: {
   const reviewer = agentDefs.find((a) => a.teamRole === "reviewer");
   const devAgents = agentDefs.filter((a) => a.teamRole === "dev");
 
-  const [memberChecked, setMemberChecked] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    for (const d of devAgents) init[d.id] = true;
-    return init;
-  });
+  const [selectedDevId, setSelectedDevId] = useState<string>(devAgents[0]?.id ?? "");
   const [backends, setBackends] = useState<Record<string, string>>({});
-
-  const toggleMember = (id: string) => {
-    setMemberChecked((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const handleCreate = () => {
     if (!leader) return;
-    const memberIds = devAgents
-      .filter((d) => memberChecked[d.id])
-      .map((d) => d.id);
+    const memberIds: string[] = [];
+    if (selectedDevId) memberIds.push(selectedDevId);
     if (reviewer) memberIds.push(reviewer.id);
     onCreateTeam(leader.id, memberIds, backends);
   };
@@ -1674,22 +1667,23 @@ function HireTeamModal({ agentDefs, onCreateTeam, onClose, assetsReady }: {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: "#1e1a30", padding: "14px 14px 10px",
-          width: "90%", maxWidth: 380, border: "2px solid #3d2e54",
+          backgroundColor: "#1e1a30", padding: "18px 18px 14px",
+          width: "90%", maxWidth: 440, border: "2px solid #3d2e54",
           boxShadow: "4px 4px 0px rgba(0,0,0,0.5)",
           maxHeight: "90vh", overflowY: "auto",
         }}
       >
-        <h2 className="px-font" style={{ fontSize: 10, margin: "0 0 12px", textAlign: "center", color: "#e8b040", letterSpacing: "0.05em" }}>Hire Team</h2>
+        <h2 className="px-font" style={{ fontSize: 13, margin: "0 0 14px", textAlign: "center", color: "#e8b040", letterSpacing: "0.05em" }}>Hire Team</h2>
 
-        <div style={{ fontSize: 9, color: "#7a6858", marginBottom: 6, fontFamily: "monospace", letterSpacing: "0.05em" }}>SELECT TEAM MEMBERS</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 6, fontFamily: "monospace", letterSpacing: "0.05em" }}>SELECT TEAM MEMBERS</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
           {/* Fixed rows: leader and reviewer */}
           {fixedRows.map(({ def, label }) => (
             <div
               key={def.id}
+              title={def.skills ? `Skills: ${def.skills}` : undefined}
               style={{
-                display: "flex", alignItems: "center", gap: 8, padding: "5px 8px",
+                display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
                 border: "1px solid #e8903070",
                 backgroundColor: "#261a00",
                 textAlign: "left",
@@ -1697,18 +1691,18 @@ function HireTeamModal({ agentDefs, onCreateTeam, onClose, assetsReady }: {
             >
               <SpriteAvatar palette={def.palette} zoom={2} ready={assetsReady} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#eddcb8" }}>
-                  {def.name} <span style={{ color: "#e89030", fontSize: 8, fontFamily: "monospace" }}>{label}</span>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#eddcb8" }}>
+                  {def.name} <span style={{ color: "#e89030", fontSize: 10, fontFamily: "monospace" }}>{label}</span>
                 </div>
-                <div style={{ fontSize: 10, color: "#7a6858" }}>{def.role}</div>
+                <div style={{ fontSize: 12, color: "#7a6858" }}>{def.role}</div>
               </div>
               <select
                 value={backends[def.id] ?? "claude"}
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => setBackends((prev) => ({ ...prev, [def.id]: e.target.value }))}
                 style={{
-                  padding: "2px 4px", border: "1px solid #3d2e54",
-                  backgroundColor: "#1a1530", color: "#9a8a68", fontSize: 9, cursor: "pointer", fontFamily: "monospace",
+                  padding: "3px 6px", border: "1px solid #3d2e54",
+                  backgroundColor: "#1a1530", color: "#9a8a68", fontSize: 11, cursor: "pointer", fontFamily: "monospace",
                 }}
               >
                 {BACKEND_OPTIONS.map((b) => (
@@ -1718,49 +1712,42 @@ function HireTeamModal({ agentDefs, onCreateTeam, onClose, assetsReady }: {
             </div>
           ))}
 
-          {/* Toggleable dev cards — grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+          {/* Dev cards — single select grid */}
+          <div style={{ fontSize: 11, color: "#7a6858", marginTop: 4, marginBottom: 4, fontFamily: "monospace", letterSpacing: "0.05em" }}>DEV AGENT (pick 1)</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5 }}>
             {devAgents.map((def) => {
-              const checked = !!memberChecked[def.id];
+              const selected = selectedDevId === def.id;
               return (
                 <button
                   key={def.id}
-                  onClick={() => toggleMember(def.id)}
+                  onClick={() => setSelectedDevId(def.id)}
+                  title={def.skills ? `Skills: ${def.skills}` : undefined}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center",
-                    padding: "10px 6px 8px",
-                    border: checked ? "1px solid #e8b04060" : "1px solid #3d2e54",
-                    backgroundColor: "transparent",
+                    padding: "12px 6px 10px",
+                    border: selected ? "1px solid #e8b04060" : "1px solid #3d2e54",
+                    backgroundColor: selected ? "#2a2200" : "transparent",
                     cursor: "pointer", textAlign: "center",
-                    opacity: checked ? 1 : 0.5,
-                    transition: "opacity 0.15s, border-color 0.15s",
+                    opacity: selected ? 1 : 0.5,
+                    transition: "opacity 0.15s, border-color 0.15s, background-color 0.15s",
                   }}
                 >
                   <SpriteAvatar palette={def.palette} zoom={2} ready={assetsReady} />
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#eddcb8", marginTop: 6, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.name}</div>
-                  <div style={{ fontSize: 9, color: "#7a6858", marginTop: 2, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.role}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={() => toggleMember(def.id)}
-                      style={{ cursor: "pointer", accentColor: "#e8b040" }}
-                    />
-                    <select
-                      value={backends[def.id] ?? "claude"}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setBackends((prev) => ({ ...prev, [def.id]: e.target.value }))}
-                      style={{
-                        padding: "2px 4px", border: "1px solid #3d2e54",
-                        backgroundColor: "#1a1530", color: "#9a8a68", fontSize: 9, cursor: "pointer", fontFamily: "monospace",
-                      }}
-                    >
-                      {BACKEND_OPTIONS.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#eddcb8", marginTop: 6, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.name}</div>
+                  <div style={{ fontSize: 11, color: "#7a6858", marginTop: 2, width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.role}</div>
+                  <select
+                    value={backends[def.id] ?? "claude"}
+                    onClick={(e) => { e.stopPropagation(); setSelectedDevId(def.id); }}
+                    onChange={(e) => { setSelectedDevId(def.id); setBackends((prev) => ({ ...prev, [def.id]: e.target.value })); }}
+                    style={{
+                      marginTop: 6, padding: "3px 6px", border: "1px solid #3d2e54",
+                      backgroundColor: "#1a1530", color: "#9a8a68", fontSize: 11, cursor: "pointer", fontFamily: "monospace",
+                    }}
+                  >
+                    {BACKEND_OPTIONS.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
                 </button>
               );
             })}
@@ -1772,7 +1759,7 @@ function HireTeamModal({ agentDefs, onCreateTeam, onClose, assetsReady }: {
             onClick={handleCreate}
             style={{
               flex: 1, padding: "9px", border: "1px solid #e8b04060",
-              backgroundColor: "#382800", color: "#e8b040", fontSize: 11,
+              backgroundColor: "#382800", color: "#e8b040", fontSize: 13,
               fontWeight: 700, cursor: "pointer", fontFamily: "monospace",
               opacity: leader ? 1 : 0.4,
             }}
@@ -1781,9 +1768,9 @@ function HireTeamModal({ agentDefs, onCreateTeam, onClose, assetsReady }: {
           <button
             onClick={onClose}
             style={{
-              padding: "9px 14px",
+              padding: "9px 16px",
               border: "1px solid #3d2e54", backgroundColor: "transparent",
-              color: "#6a5848", fontSize: 11, cursor: "pointer", fontFamily: "monospace",
+              color: "#6a5848", fontSize: 13, cursor: "pointer", fontFamily: "monospace",
             }}
           >Cancel</button>
         </div>
