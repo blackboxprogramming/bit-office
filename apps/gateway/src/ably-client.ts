@@ -1,16 +1,27 @@
 import * as Ably from "ably";
 import { config } from "./config.js";
 import { CommandSchema } from "@office/shared";
-import type { GatewayEvent, Command } from "@office/shared";
-import type { Channel } from "./transport.js";
+import type { GatewayEvent, Command, UserRole } from "@office/shared";
+import type { Channel, CommandMeta } from "./transport.js";
 
 let client: Ably.Realtime | null = null;
 let eventsChannel: Ably.RealtimeChannel | null = null;
 
+/** Extract role from Ably clientId format "role:id" */
+function extractRoleFromClientId(clientId?: string): { role: UserRole; clientId: string } {
+  if (!clientId) return { role: "owner", clientId: "unknown" };
+  const [prefix, id] = clientId.split(":", 2);
+  if (prefix === "collaborator" || prefix === "spectator" || prefix === "owner") {
+    return { role: prefix, clientId: id ?? clientId };
+  }
+  // Legacy clientId format (e.g. "device:xxx") — treat as owner for backward compat
+  return { role: "owner", clientId };
+}
+
 export const ablyChannel: Channel = {
   name: "Ably",
 
-  async init(commandHandler: (cmd: Command) => void): Promise<boolean> {
+  async init(commandHandler: (cmd: Command, meta: CommandMeta) => void): Promise<boolean> {
     if (!config.ablyApiKey) return false;
 
     client = new Ably.Realtime({ key: config.ablyApiKey });
@@ -23,7 +34,8 @@ export const ablyChannel: Channel = {
     await commandsChannel.subscribe((msg: Ably.Message) => {
       try {
         const parsed = CommandSchema.parse(msg.data);
-        commandHandler(parsed);
+        const meta = extractRoleFromClientId(msg.clientId);
+        commandHandler(parsed, meta);
       } catch (err) {
         console.error("[Ably] Invalid command:", err);
       }

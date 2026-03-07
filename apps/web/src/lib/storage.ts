@@ -4,14 +4,22 @@ export interface ConnectionInfo {
   mode: "ws" | "ably";
   machineId: string;
   wsUrl?: string;
+  role?: "owner" | "collaborator" | "spectator";
+  sessionToken?: string;
 }
 
 export function saveConnection(info: ConnectionInfo) {
-  localStorage.setItem(CONNECTION_KEY, JSON.stringify(info));
+  // Use sessionStorage so each tab keeps its own identity (owner vs collaborator vs spectator).
+  // Fall back to localStorage for the owner connection so it persists across new tabs.
+  sessionStorage.setItem(CONNECTION_KEY, JSON.stringify(info));
+  if (info.role === "owner" || !info.role) {
+    localStorage.setItem(CONNECTION_KEY, JSON.stringify(info));
+  }
 }
 
 export function getConnection(): ConnectionInfo | null {
-  const raw = localStorage.getItem(CONNECTION_KEY);
+  // Prefer sessionStorage (tab-specific), fall back to localStorage (owner persisted)
+  const raw = sessionStorage.getItem(CONNECTION_KEY) ?? localStorage.getItem(CONNECTION_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as ConnectionInfo;
@@ -21,6 +29,7 @@ export function getConnection(): ConnectionInfo | null {
 }
 
 export function clearConnection() {
+  sessionStorage.removeItem(CONNECTION_KEY);
   localStorage.removeItem(CONNECTION_KEY);
 }
 

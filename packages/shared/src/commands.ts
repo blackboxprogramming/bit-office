@@ -85,6 +85,10 @@ export const ApprovePlanCommand = z.object({
 export const EndProjectCommand = z.object({
   type: z.literal("END_PROJECT"),
   agentId: z.string(),
+  name: z.string().optional(),
+  role: z.string().optional(),
+  personality: z.string().optional(),
+  backend: z.string().optional(),
 });
 
 export const SaveAgentDefCommand = z.object({
@@ -106,6 +110,21 @@ export const DeleteAgentDefCommand = z.object({
   agentDefId: z.string(),
 });
 
+export const SuggestCommand = z.object({
+  type: z.literal("SUGGEST"),
+  text: z.string().max(500),
+  author: z.string().max(30).optional(),
+});
+
+export const ListProjectsCommand = z.object({
+  type: z.literal("LIST_PROJECTS"),
+});
+
+export const LoadProjectCommand = z.object({
+  type: z.literal("LOAD_PROJECT"),
+  projectId: z.string(),
+});
+
 export const CommandSchema = z.discriminatedUnion("type", [
   RunTaskCommand,
   ApprovalDecisionCommand,
@@ -123,6 +142,9 @@ export const CommandSchema = z.discriminatedUnion("type", [
   EndProjectCommand,
   SaveAgentDefCommand,
   DeleteAgentDefCommand,
+  SuggestCommand,
+  ListProjectsCommand,
+  LoadProjectCommand,
 ]);
 
 export type RunTaskCommand = z.infer<typeof RunTaskCommand>;
@@ -141,4 +163,7 @@ export type ApprovePlanCommand = z.infer<typeof ApprovePlanCommand>;
 export type EndProjectCommand = z.infer<typeof EndProjectCommand>;
 export type SaveAgentDefCommand = z.infer<typeof SaveAgentDefCommand>;
 export type DeleteAgentDefCommand = z.infer<typeof DeleteAgentDefCommand>;
+export type SuggestCommand = z.infer<typeof SuggestCommand>;
+export type ListProjectsCommand = z.infer<typeof ListProjectsCommand>;
+export type LoadProjectCommand = z.infer<typeof LoadProjectCommand>;
 export type Command = z.infer<typeof CommandSchema>;

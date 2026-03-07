@@ -15,9 +15,14 @@ export default function PairPage() {
   useEffect(() => {
     const { getConnection } = require("@/lib/storage");
     const conn = getConnection();
-    if (conn) {
+    if (conn && conn.sessionToken) {
       router.push("/office");
       return;
+    }
+    // Clear stale connection without sessionToken (pre-RBAC)
+    if (conn && !conn.sessionToken) {
+      const { clearConnection } = require("@/lib/storage");
+      clearConnection();
     }
     tryAutoConnect();
   }, [router]);
@@ -30,7 +35,7 @@ export default function PairPage() {
         if (res.ok) {
           const data = await res.json();
           const { saveConnection } = await import("@/lib/storage");
-          saveConnection({ mode: "ws", machineId: data.machineId, wsUrl: window.location.origin.replace(/^http/, "ws") });
+          saveConnection({ mode: "ws", machineId: data.machineId, wsUrl: window.location.origin.replace(/^http/, "ws"), role: data.role ?? "owner", sessionToken: data.sessionToken });
           router.push("/office");
           return;
         }
@@ -47,7 +52,7 @@ export default function PairPage() {
         if (!res.ok) continue;
         const data = await res.json();
         const { saveConnection } = await import("@/lib/storage");
-        saveConnection({ mode: "ws", machineId: data.machineId, wsUrl: `ws://localhost:${port}` });
+        saveConnection({ mode: "ws", machineId: data.machineId, wsUrl: `ws://localhost:${port}`, role: data.role ?? "owner", sessionToken: data.sessionToken });
         router.push("/office");
         return;
       } catch {
@@ -84,6 +89,8 @@ export default function PairPage() {
         mode: data.hasAbly ? "ably" : "ws",
         machineId: data.machineId,
         wsUrl: data.wsUrl,
+        role: data.role ?? "owner",
+        sessionToken: data.sessionToken,
       });
       router.push("/office");
     } catch {

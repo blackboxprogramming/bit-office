@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AgentStatus, GatewayEvent, TaskResultPayload, AgentDefinition } from "@office/shared";
+import type { AgentStatus, GatewayEvent, TaskResultPayload, AgentDefinition, UserRole } from "@office/shared";
 
 export interface ChatMessage {
   id: string;
@@ -53,20 +53,49 @@ export interface TeamPhaseState {
   leadAgentId: string;
 }
 
+export interface Suggestion {
+  text: string;
+  author: string;
+  timestamp: number;
+}
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  startedAt: number;
+  endedAt: number;
+  agentNames: string[];
+  eventCount: number;
+  preview?: {
+    entryFile?: string;
+    projectDir?: string;
+    previewCmd?: string;
+    previewPort?: number;
+  };
+}
+
 interface OfficeStore {
   agents: Map<string, AgentState>;
   teamMessages: TeamChatMessage[];
   teamPhases: Map<string, TeamPhaseState>;
   agentDefs: AgentDefinition[];
+  role: UserRole;
+  suggestions: Suggestion[];
+  projectList: ProjectSummary[];
+  viewingProjectId: string | null;
+  viewingProjectEvents: GatewayEvent[];
+  viewingProjectName: string | null;
   connected: boolean;
   hydrated: boolean;
   setConnected: (c: boolean) => void;
+  setRole: (role: UserRole) => void;
   hydrate: () => void;
   handleEvent: (event: GatewayEvent) => void;
   getAgent: (id: string) => AgentState;
   addUserMessage: (agentId: string, taskId: string, prompt: string) => void;
   removeAgent: (agentId: string) => void;
   clearTeamMessages: () => void;
+  clearViewingProject: () => void;
 }
 
 // ── localStorage persistence ──
@@ -213,10 +242,17 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   agentDefs: [],
   teamMessages: [],
   teamPhases: new Map(),
+  role: "owner" as UserRole,
+  suggestions: [],
+  projectList: [],
+  viewingProjectId: null,
+  viewingProjectEvents: [],
+  viewingProjectName: null,
   connected: false,
   hydrated: false,
 
   setConnected: (c) => set({ connected: c }),
+  setRole: (role) => set({ role }),
 
   hydrate: () => {
     if (get().hydrated) return;
@@ -262,6 +298,10 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     set({ teamMessages: [], teamPhases: new Map() });
   },
 
+  clearViewingProject: () => {
+    set({ viewingProjectId: null, viewingProjectEvents: [], viewingProjectName: null });
+  },
+
   addUserMessage: (agentId, taskId, prompt) => {
     set((state) => {
       const agents = new Map(state.agents);
@@ -285,6 +325,16 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
       const agents = new Map(state.agents);
 
       switch (event.type) {
+        case "AGENTS_SYNC": {
+          // Remove agents that no longer exist on the gateway (e.g. after restart)
+          const validIds = new Set(event.agentIds);
+          for (const agentId of agents.keys()) {
+            if (!validIds.has(agentId)) {
+              agents.delete(agentId);
+            }
+          }
+          break;
+        }
         case "AGENT_CREATED": {
           const existing = agents.get(event.agentId);
           if (existing) {
@@ -350,11 +400,6 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
         }
         case "AGENT_STATUS": {
           const agent = agents.get(event.agentId) ?? defaultAgent(event.agentId);
-          // Guard: for managed agents, ignore server-side idle downgrades — rely on TASK_DONE/TASK_FAILED instead.
-          // External agents have no TASK_DONE events, so always accept their status updates.
-          if (event.status === "idle" && agent.status !== "idle" && !agent.isExternal) {
-            break;
-          }
           agents.set(event.agentId, { ...agent, status: event.status });
           break;
         }
@@ -612,6 +657,23 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
           teamPhases.set(event.teamId, { phase: event.phase, leadAgentId: event.leadAgentId });
           saveTeamPhases(teamPhases);
           return { agents, teamPhases };
+        }
+        case "SUGGESTION": {
+          const newSuggestions = [...state.suggestions, { text: event.text, author: event.author, timestamp: event.timestamp }];
+          // Cap at 50
+          if (newSuggestions.length > 50) newSuggestions.shift();
+          return { agents, suggestions: newSuggestions };
+        }
+        case "PROJECT_LIST": {
+          return { agents, projectList: event.projects };
+        }
+        case "PROJECT_DATA": {
+          return {
+            agents,
+            viewingProjectId: event.projectId,
+            viewingProjectName: event.name,
+            viewingProjectEvents: event.events as GatewayEvent[],
+          };
         }
       }
 

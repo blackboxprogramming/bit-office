@@ -1,4 +1,9 @@
-import type { GatewayEvent, Command } from "@office/shared";
+import type { GatewayEvent, Command, UserRole } from "@office/shared";
+
+export interface CommandMeta {
+  role: UserRole;
+  clientId: string;
+}
 
 /**
  * Channel interface — every message channel implements this.
@@ -8,7 +13,7 @@ export interface Channel {
   /** Channel name for logging */
   readonly name: string;
   /** Initialize and connect. Return false to skip (e.g. missing config). */
-  init(commandHandler: (cmd: Command) => void): Promise<boolean>;
+  init(commandHandler: (cmd: Command, meta: CommandMeta) => void): Promise<boolean>;
   /** Broadcast an event to this channel's clients */
   broadcast(event: GatewayEvent): void;
   /** Cleanup on shutdown */
@@ -23,7 +28,7 @@ export function registerChannel(channel: Channel) {
 }
 
 /** Initialize all registered channels. Skips those that return false from init(). */
-export async function initTransports(commandHandler: (cmd: Command) => void) {
+export async function initTransports(commandHandler: (cmd: Command, meta: CommandMeta) => void) {
   const active: string[] = [];
   const skipped: string[] = [];
 

@@ -11,10 +11,10 @@ export function connect(info: ConnectionInfo) {
 
   if (info.mode === "ws" && info.wsUrl) {
     activeMode = "ws";
-    connectToWs(info.wsUrl);
+    connectToWs(info.wsUrl, info.sessionToken);
   } else if (info.mode === "ably") {
     activeMode = "ably";
-    connectToAbly(info.machineId);
+    connectToAbly(info.machineId, info.sessionToken);
   }
 
   // Return a scoped disconnect — only disconnects if this connection is still active

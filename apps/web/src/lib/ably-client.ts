@@ -6,7 +6,7 @@ import { getGatewayHttpUrl } from "@/lib/storage";
 let client: Ably.Realtime | null = null;
 let commandsChannel: Ably.RealtimeChannel | null = null;
 
-export function connectToAbly(machineId: string) {
+export function connectToAbly(machineId: string, sessionToken?: string) {
   client = new Ably.Realtime({
     authCallback: async (_params, callback) => {
       try {
@@ -14,7 +14,7 @@ export function connectToAbly(machineId: string) {
         const res = await fetch(`${baseUrl}/ably/token`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ machineId }),
+          body: JSON.stringify({ machineId, sessionToken }),
         });
         if (!res.ok) throw new Error("Token request failed");
         const tokenRequest = await res.json();

@@ -2,7 +2,7 @@ import TelegramBot from "node-telegram-bot-api";
 import { config } from "./config.js";
 import { nanoid } from "nanoid";
 import type { GatewayEvent, Command } from "@office/shared";
-import type { Channel } from "./transport.js";
+import type { Channel, CommandMeta } from "./transport.js";
 
 /** Same order as AGENT_PRESETS in packages/shared/src/presets.ts */
 const PRESETS = [
@@ -48,7 +48,7 @@ function formatEvent(event: GatewayEvent, agentId: string): string | null {
 export const telegramChannel: Channel = {
   name: "Telegram",
 
-  async init(commandHandler: (cmd: Command) => void): Promise<boolean> {
+  async init(commandHandler: (cmd: Command, meta: CommandMeta) => void): Promise<boolean> {
     const tokens = config.telegramBotTokens;
     if (!tokens.length || tokens.every((t) => !t)) return false;
 
@@ -84,7 +84,7 @@ export const telegramChannel: Channel = {
         role: preset.role,
         palette: preset.palette,
         personality: preset.personality,
-      });
+      }, { role: "owner", clientId: `tg-${preset.name.toLowerCase()}` });
 
       const botInfo = await bot.getMe();
       console.log(`[Telegram] @${botInfo.username} → ${preset.name} (${preset.role})`);
@@ -97,22 +97,24 @@ export const telegramChannel: Channel = {
         const text = msg.text.trim();
 
         // Commands
+        const tgMeta: CommandMeta = { role: "owner", clientId: `tg-${preset.name.toLowerCase()}` };
+
         if (text === "/yes") {
-          commandHandler({ type: "APPROVAL_DECISION", approvalId: "__all__", decision: "yes" });
+          commandHandler({ type: "APPROVAL_DECISION", approvalId: "__all__", decision: "yes" }, tgMeta);
           return;
         }
         if (text === "/no") {
-          commandHandler({ type: "APPROVAL_DECISION", approvalId: "__all__", decision: "no" });
+          commandHandler({ type: "APPROVAL_DECISION", approvalId: "__all__", decision: "no" }, tgMeta);
           return;
         }
         if (text === "/cancel") {
-          commandHandler({ type: "CANCEL_TASK", agentId, taskId: "" });
+          commandHandler({ type: "CANCEL_TASK", agentId, taskId: "" }, tgMeta);
           bot.sendMessage(msg.chat.id, `🛑 Cancelled ${preset.name}'s current task`);
           return;
         }
         if (text === "/status") {
           // Trigger a PING to re-broadcast all statuses
-          commandHandler({ type: "PING" });
+          commandHandler({ type: "PING" }, tgMeta);
           return;
         }
         if (text.startsWith("/")) return; // ignore other commands
@@ -126,7 +128,7 @@ export const telegramChannel: Channel = {
           name: preset.name,
           role: preset.role,
           personality: preset.personality,
-        });
+        }, tgMeta);
       });
     }
 

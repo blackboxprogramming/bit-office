@@ -2,7 +2,8 @@ import { EventEmitter } from "events";
 import { existsSync } from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
-import { AgentSession } from "./agent-session.js";
+import { AgentSession, clearSessionId } from "./agent-session.js";
+import { resolveAgentPath } from "./resolve-path.js";
 import { AgentManager } from "./agent-manager.js";
 import { DelegationRouter } from "./delegation.js";
 import { PromptEngine } from "./prompt-templates.js";
@@ -310,7 +311,7 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
   getAllAgents() {
     return this.agentManager.getAll().map(s => ({
       agentId: s.agentId, name: s.name, role: s.role, status: s.status,
-      palette: s.palette, backend: s.backend.id, pid: s.pid,
+      palette: s.palette, personality: s.personality, backend: s.backend.id, pid: s.pid,
       isTeamLead: this.agentManager.isTeamLead(s.agentId),
       teamId: s.teamId,
     }));
@@ -355,23 +356,25 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
     if (session) session.originalTask = task;
   }
 
-  /** Clear ALL team members' conversation history for a fresh project cycle. */
+  /** Clear team members' conversation history for a fresh project cycle. */
   clearLeaderHistory(agentId: string): void {
+    // Always clear the leader's session from disk, even if not in agentManager
+    clearSessionId(agentId);
+
     const session = this.agentManager.get(agentId);
-    if (session) {
-      // Clear leader
-      session.clearHistory();
-      // Clear ALL team members (workers keep stale session IDs from previous project)
-      for (const agent of this.agentManager.getAll()) {
-        if (agent.agentId !== agentId) {
-          agent.clearHistory();
-        }
+    if (session) session.clearHistory();
+
+    // Clear all other agents (team workers)
+    for (const agent of this.agentManager.getAll()) {
+      if (agent.agentId !== agentId) {
+        agent.clearHistory();
       }
-      this.delegationRouter.clearAll();
-      this.teamPreview = null;
-      this.teamChangedFiles.clear();
-      this.teamFinalized = false;
     }
+
+    this.delegationRouter.clearAll();
+    this.teamPreview = null;
+    this.teamChangedFiles.clear();
+    this.teamFinalized = false;
   }
 
   // ---------------------------------------------------------------------------
@@ -544,13 +547,15 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
           }
 
           // Validate entryFile against disk — agents (both dev and leader) often hallucinate filenames.
-          // changedFiles is ground truth because it comes from actual file operations.
+          // Use resolveAgentPath to handle all path variations (relative to project, workspace, or basename).
           if (event.result?.entryFile) {
             const projectDir = this.delegationRouter.getTeamProjectDir() ?? this.workspace;
-            const absEntry = path.isAbsolute(event.result.entryFile)
-              ? event.result.entryFile
-              : path.join(projectDir, event.result.entryFile);
-            if (!existsSync(absEntry)) {
+            const resolved = resolveAgentPath(event.result.entryFile, projectDir, this.workspace);
+            if (resolved) {
+              // Store as relative to projectDir for downstream consistency
+              event.result.entryFile = path.relative(projectDir, resolved);
+            } else {
+              // Not found on disk — fall back to changedFiles
               const allFiles = event.result.changedFiles ?? [];
               const ext = path.extname(event.result.entryFile).toLowerCase();
               const candidate = allFiles
@@ -611,15 +616,14 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
             const entryFile = event.result.entryFile;
             const projectDir = this.delegationRouter.getTeamProjectDir() ?? this.workspace;
             if (/\.html?$/i.test(entryFile)) {
-              // Static HTML: serve via file server
-              const absPath = path.isAbsolute(entryFile)
-                ? entryFile
-                : path.join(projectDir, entryFile);
-              const url = previewServer.serve(absPath);
-              if (url) {
-                event.result.previewUrl = url;
-                event.result.previewPath = absPath;
-                console.log(`[Orchestrator] Preview from leader ENTRY_FILE: ${url}`);
+              const absPath = resolveAgentPath(entryFile, projectDir, this.workspace);
+              if (absPath) {
+                const url = previewServer.serve(absPath);
+                if (url) {
+                  event.result.previewUrl = url;
+                  event.result.previewPath = absPath;
+                  console.log(`[Orchestrator] Preview from leader ENTRY_FILE: ${url}`);
+                }
               }
             }
             // Non-HTML entry file: don't auto-launch — user clicks Launch button
@@ -628,9 +632,13 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
           // Fallback: scan accumulated changedFiles for .html
           if (!event.result?.previewUrl && event.result && this.teamChangedFiles.size > 0) {
             const projectDir = this.delegationRouter.getTeamProjectDir() ?? this.workspace;
-            const htmlFile = Array.from(this.teamChangedFiles).find(f => /\.html?$/i.test(f));
+            let htmlFile: string | undefined;
+            for (const f of this.teamChangedFiles) {
+              if (!/\.html?$/i.test(f)) continue;
+              if (resolveAgentPath(f, projectDir, this.workspace)) { htmlFile = f; break; }
+            }
             if (htmlFile) {
-              const absPath = path.isAbsolute(htmlFile) ? htmlFile : path.join(projectDir, htmlFile);
+              const absPath = resolveAgentPath(htmlFile, projectDir, this.workspace)!;
               const url = previewServer.serve(absPath);
               if (url) {
                 event.result.previewUrl = url;

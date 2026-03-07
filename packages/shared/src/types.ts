@@ -13,3 +13,6 @@ export type Decision = z.infer<typeof DecisionEnum>;
 
 export const TeamPhaseEnum = z.enum(["create", "design", "execute", "complete"]);
 export type TeamPhase = z.infer<typeof TeamPhaseEnum>;
+
+export const UserRoleEnum = z.enum(["owner", "collaborator", "spectator"]);
+export type UserRole = z.infer<typeof UserRoleEnum>;

@@ -3,6 +3,7 @@ import path from "path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { previewServer } from "./preview-server.js";
+import { resolveAgentPath } from "./resolve-path.js";
 import { nanoid } from "nanoid";
 import type { AIBackend } from "./ai-backend.js";
 import type { AgentStatus, TaskResultPayload, OrchestratorEvent } from "./types.js";
@@ -10,11 +11,21 @@ import type { AgentStatus, TaskResultPayload, OrchestratorEvent } from "./types.
 /* ── Persist session IDs across restarts ────────────────────────── */
 const SESSION_FILE = path.join(homedir(), ".bit-office", "agent-sessions.json");
 
-function loadSessionMap(): Record<string, string> {
+export function loadSessionMap(): Record<string, string> {
   try {
     if (existsSync(SESSION_FILE)) return JSON.parse(readFileSync(SESSION_FILE, "utf-8"));
   } catch { /* corrupt file, start fresh */ }
   return {};
+}
+
+export function clearAllSessionIds() {
+  try {
+    writeFileSync(SESSION_FILE, "{}", "utf-8");
+  } catch { /* ignore */ }
+}
+
+export function clearSessionId(agentId: string) {
+  saveSessionId(agentId, null);
 }
 
 function saveSessionId(agentId: string, sessionId: string | null) {
@@ -571,11 +582,8 @@ export class AgentSession {
     // 2) ENTRY_FILE from structured output
     if (result.entryFile) {
       if (/\.html?$/i.test(result.entryFile)) {
-        // Static HTML: serve via file server
-        previewPath = path.isAbsolute(result.entryFile)
-          ? result.entryFile
-          : path.join(cwd, result.entryFile);
-        if (existsSync(previewPath)) {
+        previewPath = resolveAgentPath(result.entryFile, cwd, baseCwd);
+        if (previewPath) {
           previewUrl = previewServer.serve(previewPath);
           if (previewUrl) return { previewUrl, previewPath };
         }
@@ -592,17 +600,22 @@ export class AgentSession {
     // 4) .html file path mentioned in output text
     const fileMatch = this.stdoutBuffer.match(/(?:open\s+)?((?:\/[\w./_-]+|[\w./_-]+)\.html?)\b/i);
     if (fileMatch) {
-      previewPath = path.isAbsolute(fileMatch[1]) ? fileMatch[1] : path.join(cwd, fileMatch[1]);
-      previewUrl = previewServer.serve(previewPath);
-      if (previewUrl) return { previewUrl, previewPath };
+      previewPath = resolveAgentPath(fileMatch[1], cwd, baseCwd);
+      if (previewPath) {
+        previewUrl = previewServer.serve(previewPath);
+        if (previewUrl) return { previewUrl, previewPath };
+      }
     }
 
     // 5) .html in changedFiles
-    const htmlFile = result.changedFiles.find(f => /\.html?$/i.test(f));
-    if (htmlFile) {
-      previewPath = path.isAbsolute(htmlFile) ? htmlFile : path.join(cwd, htmlFile);
-      previewUrl = previewServer.serve(previewPath);
-      if (previewUrl) return { previewUrl, previewPath };
+    for (const f of result.changedFiles) {
+      if (!/\.html?$/i.test(f)) continue;
+      previewPath = resolveAgentPath(f, cwd, baseCwd);
+      if (previewPath) {
+        previewUrl = previewServer.serve(previewPath);
+        if (previewUrl) return { previewUrl, previewPath };
+        break;
+      }
     }
 
     // 6) Scan cwd for common build output (dist/index.html, build/index.html, etc.)
@@ -646,9 +659,13 @@ export class AgentSession {
       }
     }
 
-    const entryFile = entryFileMatch?.[1]?.trim();
-    const projectDir = projectDirMatch?.[1]?.trim();
-    const previewCmd = previewCmdMatch?.[1]?.trim();
+    // Filter out placeholder values that agents hallucinate
+    const isPlaceholder = (v: string | undefined): boolean =>
+      !v || /^[\[(].*not provided.*[\])]$/i.test(v) || /^[\[(].*n\/?a.*[\])]$/i.test(v) || /^none$/i.test(v);
+
+    const entryFile = isPlaceholder(entryFileMatch?.[1]?.trim()) ? undefined : entryFileMatch![1].trim();
+    const projectDir = isPlaceholder(projectDirMatch?.[1]?.trim()) ? undefined : projectDirMatch![1].trim();
+    const previewCmd = isPlaceholder(previewCmdMatch?.[1]?.trim()) ? undefined : previewCmdMatch![1].trim();
     const previewPort = previewPortMatch ? parseInt(previewPortMatch[1], 10) : undefined;
 
     if (summaryMatch) {

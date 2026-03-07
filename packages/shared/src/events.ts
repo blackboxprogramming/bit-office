@@ -139,6 +139,13 @@ export const TeamPhaseEvent = z.object({
   leadAgentId: z.string(),
 });
 
+export const SuggestionEvent = z.object({
+  type: z.literal("SUGGESTION"),
+  text: z.string(),
+  author: z.string(),
+  timestamp: z.number(),
+});
+
 export const AgentDefsEvent = z.object({
   type: z.literal("AGENT_DEFS"),
   agents: z.array(z.object({
@@ -153,7 +160,42 @@ export const AgentDefsEvent = z.object({
   })),
 });
 
+export const AgentsSyncEvent = z.object({
+  type: z.literal("AGENTS_SYNC"),
+  agentIds: z.array(z.string()),
+});
+
+const ProjectPreviewSchema = z.object({
+  entryFile: z.string().optional(),
+  projectDir: z.string().optional(),
+  previewCmd: z.string().optional(),
+  previewPort: z.number().optional(),
+}).optional();
+
+export const ProjectListEvent = z.object({
+  type: z.literal("PROJECT_LIST"),
+  projects: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    startedAt: z.number(),
+    endedAt: z.number(),
+    agentNames: z.array(z.string()),
+    eventCount: z.number(),
+    preview: ProjectPreviewSchema,
+  })),
+});
+
+export const ProjectDataEvent = z.object({
+  type: z.literal("PROJECT_DATA"),
+  projectId: z.string(),
+  name: z.string(),
+  startedAt: z.number(),
+  endedAt: z.number(),
+  events: z.array(z.any()),
+});
+
 export const GatewayEventSchema = z.discriminatedUnion("type", [
+  AgentsSyncEvent,
   AgentStatusEvent,
   TaskStartedEvent,
   LogAppendEvent,
@@ -169,6 +211,9 @@ export const GatewayEventSchema = z.discriminatedUnion("type", [
   TokenUpdateEvent,
   TeamPhaseEvent,
   AgentDefsEvent,
+  SuggestionEvent,
+  ProjectListEvent,
+  ProjectDataEvent,
 ]);
 
 export type TokenUsage = z.infer<typeof TokenUsage>;
@@ -188,4 +233,8 @@ export type TaskQueuedEvent = z.infer<typeof TaskQueuedEvent>;
 export type TokenUpdateEvent = z.infer<typeof TokenUpdateEvent>;
 export type TeamPhaseEvent = z.infer<typeof TeamPhaseEvent>;
 export type AgentDefsEvent = z.infer<typeof AgentDefsEvent>;
+export type SuggestionEvent = z.infer<typeof SuggestionEvent>;
+export type AgentsSyncEvent = z.infer<typeof AgentsSyncEvent>;
+export type ProjectListEvent = z.infer<typeof ProjectListEvent>;
+export type ProjectDataEvent = z.infer<typeof ProjectDataEvent>;
 export type GatewayEvent = z.infer<typeof GatewayEventSchema>;

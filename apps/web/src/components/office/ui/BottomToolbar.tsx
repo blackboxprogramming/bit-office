@@ -6,6 +6,7 @@ interface BottomToolbarProps {
   editMode: boolean
   onToggleEditMode: () => void
   onOpenSettings: () => void
+  onOpenHistory?: () => void
 }
 
 const panelStyle: React.CSSProperties = {
@@ -42,7 +43,7 @@ const btnActive: React.CSSProperties = {
   color: '#e8b040',
 }
 
-export default function BottomToolbar({ editMode, onToggleEditMode, onOpenSettings }: BottomToolbarProps) {
+export default function BottomToolbar({ editMode, onToggleEditMode, onOpenSettings, onOpenHistory }: BottomToolbarProps) {
   const [hovered, setHovered] = useState<string | null>(null)
 
   return (
@@ -77,6 +78,21 @@ export default function BottomToolbar({ editMode, onToggleEditMode, onOpenSettin
       >
         Settings
       </button>
+      {onOpenHistory && (
+        <button
+          onClick={onOpenHistory}
+          onMouseEnter={() => setHovered('history')}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            ...btnBase,
+            background: hovered === 'history' ? 'rgba(200,155,48,0.08)' : btnBase.background,
+            color: hovered === 'history' ? '#a08a6c' : btnBase.color,
+          }}
+          title="Project history"
+        >
+          History
+        </button>
+      )}
     </div>
   )
 }

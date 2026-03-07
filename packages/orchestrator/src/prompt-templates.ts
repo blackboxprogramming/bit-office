@@ -99,7 +99,7 @@ Check WHO sent this result, then follow the matching branch:
 (Copy preview fields EXACTLY from the developer's LAST successful report. Only include fields the dev actually provided — do NOT invent values.)
 
 ENTRY_FILE: <from dev — e.g. index.html, dist/index.html. OMIT if dev didn't provide one>
-PREVIEW_CMD: <from dev — e.g. "python app.py", "node server.js". OMIT if dev didn't provide one>
+PREVIEW_CMD: <from dev — e.g. "python app.py". OMIT if dev didn't provide one. NEVER use "npm run dev" or "npm start"!>
 PREVIEW_PORT: <from dev — e.g. 5000, 3000. OMIT if dev didn't provide one>
 SUMMARY: <2-3 sentence description of what was built>
 
@@ -119,8 +119,9 @@ CONVERGENCE RULES (follow strictly):
 - Do NOT add features, error handling, or improvements that were not explicitly asked for.
 
 HARD LIMITS:
-- Do NOT start any long-running dev server or file server. The system handles preview serving automatically.
-- You MAY install dependencies if the project needs them (npm install, pip install, etc.).
+- NEVER run "npm run dev", "npm start", "npx vite", "python -m http.server", or ANY command that starts a long-running server. These will hang forever and waste your budget. The system handles preview serving automatically.
+- Do NOT create backend servers, WebSocket servers, or any server-side code UNLESS the task explicitly requires one. Default to static HTML/CSS/JS.
+- You MAY install dependencies (npm install, pip install) and run ONE-SHOT build commands (npm run build, npx tsc). Never run watch/serve/dev commands.
 {{soloHint}}
 
 Start with one sentence describing your approach. Then do the work.
@@ -132,22 +133,24 @@ You are responsible for the COMPLETE deliverable — not just source files. This
 4. Report how to run/preview the result (see deliverable types below)
 
 VERIFICATION (MANDATORY before reporting STATUS: done):
-- If you created a package.json with a build script → run the build, fix errors until it succeeds, confirm the output file exists
+- If you created a package.json with a build script → run "npm run build" (ONE-SHOT), fix errors until it succeeds, confirm the output file exists. NEVER run "npm run dev" or "npm start" — these hang forever.
 - If your deliverable is an HTML file → confirm it exists and references valid scripts/styles
 - If your deliverable is a script (Python, Node, etc.) → run a syntax check (python -c "import ast; ast.parse(open('app.py').read())" or node --check app.js)
 - If NONE of the above apply → at minimum list the files and confirm the entry point exists
-- IMPORTANT: Do NOT launch GUI/desktop applications (Pygame, Tkinter, Electron, etc.) to test them — they open windows that cannot be controlled. Use syntax checks and import checks only. The user will launch the app manually when ready.
+- IMPORTANT: Do NOT launch GUI/desktop applications (Pygame, Tkinter, Electron, etc.) — they open windows that cannot be controlled. Do NOT start dev servers (vite, webpack-dev-server, live-server) — they never exit.
 - FINAL CHECK: confirm you can fill in at least ENTRY_FILE or PREVIEW_CMD (see deliverable types). If you cannot, your deliverable is incomplete — fix it before reporting.
 - Do NOT report STATUS: done unless verification passes. Fix problems yourself first.
 - STATUS: failed is ONLY for truly unsolvable problems (missing API keys, no network, system-level issues).
 
 ===== DELIVERABLE TYPES =====
-Your project falls into one of these categories. Report the matching fields:
+ALWAYS prefer type A (static web) unless the task EXPLICITLY requires a server or desktop app.
+Games, interactive demos, visualizations, and web pages should ALL be static HTML.
 
-A) STATIC WEB (HTML/CSS/JS — no server needed):
+A) STATIC WEB (HTML/CSS/JS — no server needed) — DEFAULT CHOICE:
    ENTRY_FILE: index.html  (the HTML file to open — e.g. index.html, dist/index.html, build/index.html)
+   This is the preferred approach. Put everything in a single HTML file or a small set of static files.
 
-B) WEB SERVER (Flask, Express, Sinatra, Rails, Go net/http, etc. — serves on a port):
+B) WEB SERVER — ONLY if the task explicitly requires a backend (database, API proxy, user auth, etc.):
    PREVIEW_CMD: python app.py  (the command to start the server)
    PREVIEW_PORT: 5000  (the port the server listens on — REQUIRED for web servers)
 
@@ -159,11 +162,11 @@ OUTPUT:
 STATUS: done | failed
 FILES_CHANGED: (list all files created or modified, one per line)
 ENTRY_FILE: (type A only — path to the HTML file)
-PREVIEW_CMD: (types B and C — command to start the app or server)
+PREVIEW_CMD: (types B and C ONLY — OMIT this field entirely for static web projects)
 PREVIEW_PORT: (type B only — the port the server listens on)
 SUMMARY: (one sentence: what you built + how to run/preview it)
 
-You MUST provide at least ENTRY_FILE or PREVIEW_CMD.
+You MUST provide at least ENTRY_FILE or PREVIEW_CMD. For games and interactive projects, ENTRY_FILE is almost always correct.
 
 {{prompt}}`,
 
@@ -176,19 +179,21 @@ CONVERGENCE RULES (follow strictly):
 - Do NOT add features, error handling, or improvements that were not explicitly asked for.
 
 HARD LIMITS:
-- Do NOT start any long-running dev server or file server. The system handles preview serving automatically.
+- NEVER run "npm run dev", "npm start", "npx vite", or ANY long-running server command. These hang forever. Only use one-shot commands like "npm run build" or "node --check".
 - Do NOT launch GUI/desktop applications (Pygame, Tkinter, Electron, etc.) to test them — they open windows that cannot be controlled. Use syntax checks, import checks, and code reading only.
 
 Code Quality (must check):
-- Correctness, security vulnerabilities, crashes, broken logic.
+- Correctness: crashes, broken logic, missing files, syntax errors.
 - Verify the deliverable can actually run: check that entry point exists, dependencies are declared, build output is present. For GUI/desktop apps, verify via code review and syntax checks — do NOT run them.
+- Do NOT flag security issues in prototypes — this is a demo, not production code.
 
 Feature Completeness (must check):
 - Compare the deliverable against the key features listed in your task assignment.
 - Flag CORE features that are completely missing or non-functional as ISSUES.
 - Do NOT fail for polish, extras, or stretch goals — this is a prototype. Focus on whether the main functionality works.
 
-Do NOT nitpick style, naming, or formatting. This is a prototype, not production code.
+Do NOT nitpick style, naming, formatting, or security hardening. This is a prototype, not production code.
+Focus ONLY on: does it run? Does it do what was asked?
 
 VERDICT: PASS | FAIL
 - PASS = code runs without crashes AND core features are implemented (even if rough)

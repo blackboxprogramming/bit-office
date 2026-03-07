@@ -25,6 +25,7 @@ const EditorToolbar = dynamic(() => import("@/components/office/editor/EditorToo
 const ZoomControls = dynamic(() => import("@/components/office/ui/ZoomControls"), { ssr: false });
 const SettingsModal = dynamic(() => import("@/components/office/ui/SettingsModal"), { ssr: false });
 const BottomToolbar = dynamic(() => import("@/components/office/ui/BottomToolbar"), { ssr: false });
+const ProjectHistory = dynamic(() => import("@/components/office/ui/ProjectHistory"), { ssr: false });
 
 const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
   idle: { color: "#7a7060", label: "Idle" },
@@ -1729,7 +1730,7 @@ function HireTeamModal({ agentDefs, onCreateTeam, onClose, assetsReady }: {
 
 export default function OfficePage() {
   const router = useRouter();
-  const { agents, connected, addUserMessage, teamMessages, clearTeamMessages, teamPhases, agentDefs } = useOfficeStore();
+  const { agents, connected, addUserMessage, teamMessages, clearTeamMessages, teamPhases, agentDefs, role, suggestions, setRole } = useOfficeStore();
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<{ previewUrl?: string; previewPath?: string; previewCmd?: string; previewPort?: number; projectDir?: string; entryFile?: string } | null>(null);
@@ -1748,6 +1749,7 @@ export default function OfficePage() {
   // Editor state
   const [editMode, setEditMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [, forceUpdate] = useState(0);
   const editorRef = useRef(new EditorState());
@@ -1862,14 +1864,21 @@ export default function OfficePage() {
 
   useEffect(() => {
     const conn = getConnection();
-    if (!conn) {
+    if (!conn || !conn.sessionToken) {
+      // No connection or stale pre-RBAC connection — force re-pair
+      if (conn && !conn.sessionToken) {
+        const { clearConnection } = require("@/lib/storage");
+        clearConnection();
+      }
       router.push("/pair");
       return;
     }
+    // Set role from stored connection info
+    setRole(conn.role ?? "owner");
     useOfficeStore.getState().hydrate();
     const scopedDisconnect = connect(conn);
     return scopedDisconnect;
-  }, [router]);
+  }, [router, setRole]);
 
   const selectedAgentState = selectedAgent ? agents.get(selectedAgent) : null;
   const isAgentBusy = selectedAgentState?.status === "working" || selectedAgentState?.status === "waiting_approval";
@@ -2018,9 +2027,17 @@ export default function OfficePage() {
 
   const handleEndProject = useCallback(() => {
     if (!selectedAgent) return;
-    sendCommand({ type: "END_PROJECT", agentId: selectedAgent });
+    const agentState = agents.get(selectedAgent);
+    sendCommand({
+      type: "END_PROJECT",
+      agentId: selectedAgent,
+      name: agentState?.name,
+      role: agentState?.role,
+      personality: agentState?.personality,
+      backend: agentState?.backend,
+    });
     clearTeamMessages();
-  }, [selectedAgent, clearTeamMessages]);
+  }, [selectedAgent, agents, clearTeamMessages]);
 
   const handleApproval = useCallback((approvalId: string, decision: "yes" | "no") => {
     sendCommand({ type: "APPROVAL_DECISION", approvalId, decision });
@@ -2046,6 +2063,47 @@ export default function OfficePage() {
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const isOwner = role === "owner";
+  const isCollaborator = role === "collaborator";
+  const isSpectator = role === "spectator";
+  const [suggestText, setSuggestText] = useState("");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+
+  const handleSuggest = useCallback(() => {
+    if (!suggestText.trim()) return;
+    sendCommand({ type: "SUGGEST", text: suggestText.trim() });
+    setSuggestText("");
+  }, [suggestText]);
+
+  const [showShareMenu, setShowShareMenu] = useState(false);
+
+  const handleCreateShareLink = useCallback(async (shareRole: "collaborator" | "spectator") => {
+    try {
+      const { getGatewayHttpUrl } = await import("@/lib/storage");
+      const baseUrl = getGatewayHttpUrl();
+      // Share creation uses the pair code. We prompt the user to enter it.
+      const code = window.prompt("Enter your pair code to create a share link:");
+      if (!code) return;
+      const res = await fetch(`${baseUrl}/share/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim(), role: shareRole }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const url = `${window.location.origin}/join?token=${data.token}&gateway=${encodeURIComponent(baseUrl)}`;
+        setShareUrl(url);
+        navigator.clipboard?.writeText(url).catch(() => {});
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Failed to create share link");
+      }
+    } catch (err) {
+      console.error("[Share] Failed to create share link:", err);
+    }
+    setShowShareMenu(false);
   }, []);
 
   const SIDEBAR_W = 340;
@@ -2102,6 +2160,71 @@ export default function OfficePage() {
                 EDIT MODE
               </span>
             )}
+            {isSpectator && (
+              <span style={{
+                fontSize: 9, padding: "3px 7px",
+                border: "1px solid #3b82f6",
+                backgroundColor: "#1a2744", color: "#7ab8f5",
+                fontFamily: "monospace", letterSpacing: "0.05em",
+              }}>
+                WATCHING
+              </span>
+            )}
+            {isCollaborator && (
+              <span style={{
+                fontSize: 9, padding: "3px 7px",
+                border: "1px solid #a855f7",
+                backgroundColor: "#2d1a44", color: "#c084fc",
+                fontFamily: "monospace", letterSpacing: "0.05em",
+              }}>
+                COLLABORATOR
+              </span>
+            )}
+            {isOwner && (
+              <div style={{ position: "relative" }}>
+                <span
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  style={{
+                    fontSize: 9, padding: "3px 7px", cursor: "pointer",
+                    border: "1px solid #a855f760",
+                    backgroundColor: showShareMenu ? "#a855f720" : "transparent", color: "#c084fc",
+                    fontFamily: "monospace", letterSpacing: "0.05em",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#a855f720"; }}
+                  onMouseLeave={(e) => { if (!showShareMenu) e.currentTarget.style.backgroundColor = "transparent"; }}
+                >
+                  SHARE
+                </span>
+                {showShareMenu && (
+                  <div style={{
+                    position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 50,
+                    backgroundColor: "#1e1a30", border: "1px solid #3d2e54",
+                    display: "flex", flexDirection: "column", minWidth: 160,
+                  }}>
+                    <button
+                      onClick={() => handleCreateShareLink("collaborator")}
+                      style={{
+                        padding: "8px 12px", border: "none", backgroundColor: "transparent",
+                        color: "#c084fc", fontSize: 11, cursor: "pointer", textAlign: "left",
+                        fontFamily: "monospace",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#a855f720"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                    >Collaborator link</button>
+                    <button
+                      onClick={() => handleCreateShareLink("spectator")}
+                      style={{
+                        padding: "8px 12px", border: "none", backgroundColor: "transparent",
+                        color: "#7ab8f5", fontSize: 11, cursor: "pointer", textAlign: "left",
+                        fontFamily: "monospace",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#3b82f620"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                    >Spectator link</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -2138,6 +2261,7 @@ export default function OfficePage() {
             editMode={editMode}
             onToggleEditMode={toggleEditMode}
             onOpenSettings={() => setShowSettings(true)}
+            onOpenHistory={() => setShowHistory(true)}
           />
         )}
 
@@ -2270,7 +2394,7 @@ export default function OfficePage() {
                         }}>{phase}</span>
                       );
                     })()}
-                    {!agentState?.teamId && (
+                    {!agentState?.teamId && isOwner && (
                       <span
                         onClick={(e) => { e.stopPropagation(); handleFire(agent.agentId); }}
                         style={{
@@ -2409,25 +2533,91 @@ export default function OfficePage() {
                             <div style={{ fontSize: 12, color: "#b89868", marginBottom: 10, lineHeight: 1.5 }}>
                               {agentState.pendingApproval.summary}
                             </div>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <button
-                                onClick={() => handleApproval(agentState.pendingApproval!.approvalId, "yes")}
-                                style={{ flex: 1, padding: "8px", border: "1px solid #48cc6a", backgroundColor: "#143a14", color: "#48cc6a", cursor: "pointer", fontWeight: "bold", fontSize: 11, fontFamily: "monospace" }}
-                              >{"\u25B6"} Approve</button>
-                              <button
-                                onClick={() => handleApproval(agentState.pendingApproval!.approvalId, "no")}
-                                style={{ flex: 1, padding: "8px", border: "1px solid #e04848", backgroundColor: "#3e1818", color: "#e04848", cursor: "pointer", fontWeight: "bold", fontSize: 11, fontFamily: "monospace" }}
-                              >{"\u2715"} Reject</button>
-                            </div>
+                            {isOwner && (
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button
+                                  onClick={() => handleApproval(agentState.pendingApproval!.approvalId, "yes")}
+                                  style={{ flex: 1, padding: "8px", border: "1px solid #48cc6a", backgroundColor: "#143a14", color: "#48cc6a", cursor: "pointer", fontWeight: "bold", fontSize: 11, fontFamily: "monospace" }}
+                                >{"\u25B6"} Approve</button>
+                                <button
+                                  onClick={() => handleApproval(agentState.pendingApproval!.approvalId, "no")}
+                                  style={{ flex: 1, padding: "8px", border: "1px solid #e04848", backgroundColor: "#3e1818", color: "#e04848", cursor: "pointer", fontWeight: "bold", fontSize: 11, fontFamily: "monospace" }}
+                                >{"\u2715"} Reject</button>
+                              </div>
+                            )}
                           </div>
                         )}
 
                         <div ref={chatEndRef} />
                       </div>
 
+                      {/* Suggestion feed (visible to owner and collaborator) */}
+                      {!isSpectator && suggestions.length > 0 && (
+                        <div style={{
+                          padding: "6px 10px", borderTop: "1px solid #2e2448",
+                          backgroundColor: "#1a1530", maxHeight: 120, overflowY: "auto",
+                        }}>
+                          <div style={{ fontSize: 9, color: "#a855f7", fontFamily: "monospace", marginBottom: 4, letterSpacing: "0.05em" }}>SUGGESTIONS</div>
+                          {suggestions.slice(-10).map((s, i) => (
+                            <div key={i} style={{ fontSize: 11, color: "#c084fc", marginBottom: 2, lineHeight: 1.4 }}>
+                              <span style={{ color: "#7c3aed", fontWeight: 600 }}>{s.author}:</span> {s.text}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Input / Cancel */}
                       {(() => {
                         const cardPhase = agentState?.isTeamLead ? getAgentPhase(agent.agentId) : null;
+
+                        // Spectator: read-only footer
+                        if (isSpectator) {
+                          return (
+                            <div style={{
+                              padding: "8px 10px", borderTop: "1px solid #2e2448",
+                              backgroundColor: "#182844", flexShrink: 0,
+                              fontSize: 11, color: "#7ab8f5", fontFamily: "monospace", textAlign: "center",
+                            }}>
+                              Watching — read-only mode
+                            </div>
+                          );
+                        }
+
+                        // Collaborator: suggest input only
+                        if (isCollaborator) {
+                          return (
+                            <div style={{
+                              padding: "8px 10px", borderTop: "1px solid #2e2448",
+                              backgroundColor: "#1a1530", flexShrink: 0,
+                            }}>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <input
+                                  value={suggestText}
+                                  onChange={(e) => setSuggestText(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && handleSuggest()}
+                                  placeholder="Share an idea..."
+                                  maxLength={500}
+                                  style={{
+                                    flex: 1, padding: "9px 12px", border: "1px solid #7c3aed40",
+                                    backgroundColor: "#16122a", color: "#c084fc", fontSize: 13, outline: "none",
+                                  }}
+                                />
+                                <button
+                                  onClick={handleSuggest}
+                                  disabled={!suggestText.trim()}
+                                  style={{
+                                    padding: "9px 14px", border: "none",
+                                    backgroundColor: suggestText.trim() ? "#a855f7" : "#272040",
+                                    color: suggestText.trim() ? "#fff" : "#5a4838",
+                                    fontSize: 12, cursor: suggestText.trim() ? "pointer" : "default",
+                                    fontWeight: 700, fontFamily: "monospace",
+                                  }}
+                                >Suggest</button>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div style={{
                             padding: "8px 10px", borderTop: "1px solid #2e2448",
@@ -2447,6 +2637,40 @@ export default function OfficePage() {
                                   backgroundColor: "#3e1818", color: "#e04848", fontSize: 12, cursor: "pointer", fontFamily: "monospace",
                                 }}
                               >{"\u2715"} Cancel current work</button>
+                            ) : cardPhase === "execute" && !busy ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  <input
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && handleRunTask()}
+                                    placeholder="Send a message..."
+                                    style={{
+                                      flex: 1, padding: "9px 12px", border: "1px solid #3d2e54",
+                                      backgroundColor: "#16122a", color: "#eddcb8", fontSize: 13, outline: "none",
+                                    }}
+                                  />
+                                  <button
+                                    onClick={handleRunTask}
+                                    disabled={!prompt.trim()}
+                                    style={{
+                                      padding: "9px 14px", border: "none",
+                                      backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
+                                      color: prompt.trim() ? "#16122a" : "#5a4838",
+                                      fontSize: 12, cursor: prompt.trim() ? "pointer" : "default",
+                                      fontWeight: 700, fontFamily: "monospace",
+                                    }}
+                                  >Send</button>
+                                </div>
+                                <button
+                                  onClick={async () => { if (await confirm("End this project and start a new one?")) handleEndProject(); }}
+                                  style={{
+                                    width: "100%", padding: "9px 16px", border: "1px solid #e89030",
+                                    backgroundColor: "#261a00", color: "#e89030", fontSize: 12, cursor: "pointer",
+                                    fontWeight: 700, fontFamily: "monospace",
+                                  }}
+                                >End Project</button>
+                              </div>
                             ) : cardPhase === "design" && !busy ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                 <button
@@ -2607,7 +2831,7 @@ export default function OfficePage() {
             </div>
 
             {/* -- Action Toolbar -- */}
-            {expandedSection === "agents" && (
+            {expandedSection === "agents" && isOwner && (
               <div style={{ display: "flex", gap: 8, padding: "8px 12px", borderBottom: "1px solid #2e2448", alignItems: "center" }}>
                 <span
                   onClick={() => setShowHireModal(true)}
@@ -2636,7 +2860,7 @@ export default function OfficePage() {
                 >+ Create</span>
               </div>
             )}
-            {expandedSection === "team" && (
+            {expandedSection === "team" && isOwner && (
               <div style={{ display: "flex", gap: 8, padding: "8px 12px", borderBottom: "1px solid #2e2448", alignItems: "center" }}>
                 {!hasTeam && (
                   <span
@@ -2736,16 +2960,18 @@ export default function OfficePage() {
           background: "linear-gradient(to top, rgba(22,18,42,0.95) 0%, rgba(22,18,42,0.7) 80%, transparent 100%)",
           overflowX: "auto",
         }}>
-          {/* Hire button */}
-          <button
-            onClick={() => setShowHireModal(true)}
-            style={{
-              width: 44, height: 44, flexShrink: 0,
-              border: "1px solid #e8b04060", backgroundColor: "rgba(200,155,48,0.12)",
-              color: "#e8b040", fontSize: 20, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-          >+</button>
+          {/* Hire button (owner only) */}
+          {isOwner && (
+            <button
+              onClick={() => setShowHireModal(true)}
+              style={{
+                width: 44, height: 44, flexShrink: 0,
+                border: "1px solid #e8b04060", backgroundColor: "rgba(200,155,48,0.12)",
+                color: "#e8b040", fontSize: 20, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >+</button>
+          )}
           {/* Team button */}
           <button
             onClick={() => setMobileTeamOpen(true)}
@@ -2908,9 +3134,73 @@ export default function OfficePage() {
               <div ref={chatEndRef} />
             </div>
 
+            {/* Suggestion feed (mobile) */}
+            {!isSpectator && suggestions.length > 0 && (
+              <div style={{
+                padding: "6px 10px", borderTop: "1px solid #2e2448",
+                backgroundColor: "#1a1530", maxHeight: 80, overflowY: "auto",
+              }}>
+                <div style={{ fontSize: 9, color: "#a855f7", fontFamily: "monospace", marginBottom: 4, letterSpacing: "0.05em" }}>SUGGESTIONS</div>
+                {suggestions.slice(-5).map((s, i) => (
+                  <div key={i} style={{ fontSize: 10, color: "#c084fc", marginBottom: 2, lineHeight: 1.3 }}>
+                    <span style={{ color: "#7c3aed", fontWeight: 600 }}>{s.author}:</span> {s.text}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Input / Cancel */}
             {(() => {
               const mobilePhase = agentState.isTeamLead ? getAgentPhase(agentState.agentId) : null;
+
+              // Spectator: read-only footer
+              if (isSpectator) {
+                return (
+                  <div style={{
+                    padding: "8px 10px", borderTop: "1px solid #2e2448",
+                    backgroundColor: "#182844", flexShrink: 0,
+                    fontSize: 11, color: "#7ab8f5", fontFamily: "monospace", textAlign: "center",
+                  }}>
+                    Watching — read-only mode
+                  </div>
+                );
+              }
+
+              // Collaborator: suggest input only
+              if (isCollaborator) {
+                return (
+                  <div style={{
+                    padding: "8px 10px", borderTop: "1px solid #2e2448",
+                    backgroundColor: "#1a1530", flexShrink: 0,
+                  }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input
+                        value={suggestText}
+                        onChange={(e) => setSuggestText(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && handleSuggest()}
+                        placeholder="Share an idea..."
+                        maxLength={500}
+                        style={{
+                          flex: 1, padding: "9px 12px", border: "1px solid #7c3aed40",
+                          backgroundColor: "#16122a", color: "#c084fc", fontSize: 13, outline: "none",
+                        }}
+                      />
+                      <button
+                        onClick={handleSuggest}
+                        disabled={!suggestText.trim()}
+                        style={{
+                          padding: "9px 14px", border: "none",
+                          backgroundColor: suggestText.trim() ? "#a855f7" : "#272040",
+                          color: suggestText.trim() ? "#fff" : "#5a4838",
+                          fontSize: 12, cursor: suggestText.trim() ? "pointer" : "default",
+                          fontWeight: 700, fontFamily: "monospace",
+                        }}
+                      >Suggest</button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div style={{
                   padding: "8px 10px", borderTop: "1px solid #2e2448",
@@ -2930,6 +3220,40 @@ export default function OfficePage() {
                         backgroundColor: "#3e1818", color: "#e04848", fontSize: 12, cursor: "pointer", fontFamily: "monospace",
                       }}
                     >✕ Cancel current work</button>
+                  ) : mobilePhase === "execute" && !busy ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && handleRunTask()}
+                          placeholder="Send a message..."
+                          style={{
+                            flex: 1, padding: "9px 12px", border: "1px solid #3d2e54",
+                            backgroundColor: "#16122a", color: "#eddcb8", fontSize: 13, outline: "none",
+                          }}
+                        />
+                        <button
+                          onClick={handleRunTask}
+                          disabled={!prompt.trim()}
+                          style={{
+                            padding: "9px 14px", border: "none",
+                            backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
+                            color: prompt.trim() ? "#16122a" : "#5a4838",
+                            fontSize: 12, cursor: prompt.trim() ? "pointer" : "default",
+                            fontWeight: 700, fontFamily: "monospace",
+                          }}
+                        >Send</button>
+                      </div>
+                      <button
+                        onClick={async () => { if (await confirm("End this project and start a new one?")) handleEndProject(); }}
+                        style={{
+                          width: "100%", padding: "9px 16px", border: "1px solid #e89030",
+                          backgroundColor: "#261a00", color: "#e89030", fontSize: 12, cursor: "pointer",
+                          fontWeight: 700, fontFamily: "monospace",
+                        }}
+                      >End Project</button>
+                    </div>
                   ) : mobilePhase === "design" && !busy ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       <button
@@ -3098,6 +3422,19 @@ export default function OfficePage() {
         />
       )}
 
+      <ProjectHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        onPreview={(preview) => {
+          // Construct preview URL based on preview type
+          if (preview.entryFile) {
+            setPreviewUrl(`http://localhost:9100/${preview.entryFile}`);
+          } else if (preview.previewCmd && preview.previewPort) {
+            setPreviewUrl(`http://localhost:${preview.previewPort}`);
+          }
+        }}
+      />
+
       {previewUrl && <PreviewOverlay url={previewUrl} onClose={() => setPreviewUrl(null)} />}
 
       {showConfetti && <ConfettiOverlay />}
@@ -3113,6 +3450,41 @@ export default function OfficePage() {
           onDismiss={() => { setCelebration(null); setShowConfetti(false); }}
         />
       )}
+      {/* Share link modal */}
+      {shareUrl && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 100,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={() => setShareUrl(null)}>
+          <div style={{
+            backgroundColor: "#1e1a30", border: "1px solid #3d2e54",
+            padding: 24, maxWidth: 420, width: "90%",
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#eddcb8", marginBottom: 12 }}>Share Link Created</div>
+            <div style={{ fontSize: 11, color: "#7a6858", marginBottom: 8 }}>Link copied to clipboard!</div>
+            <input
+              readOnly
+              value={shareUrl}
+              style={{
+                width: "100%", padding: "8px 10px", border: "1px solid #3d2e54",
+                backgroundColor: "#16122a", color: "#eddcb8", fontSize: 11,
+                fontFamily: "monospace", outline: "none",
+              }}
+              onFocus={(e) => e.target.select()}
+            />
+            <button
+              onClick={() => setShareUrl(null)}
+              style={{
+                marginTop: 12, padding: "8px 20px", border: "none",
+                backgroundColor: "#e8b040", color: "#16122a", fontSize: 12,
+                cursor: "pointer", fontWeight: 700, fontFamily: "monospace",
+              }}
+            >OK</button>
+          </div>
+        </div>
+      )}
+
       {confirmModal}
     </div>
   );

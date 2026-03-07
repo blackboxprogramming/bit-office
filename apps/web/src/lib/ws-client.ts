@@ -4,11 +4,13 @@ import { useOfficeStore } from "@/store/office-store";
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let currentUrl: string | null = null;
+let currentSessionToken: string | null = null;
 
-export function connectToWs(wsUrl: string) {
+export function connectToWs(wsUrl: string, sessionToken?: string) {
   // Clean up any existing connection first
   cleanup();
   currentUrl = wsUrl;
+  currentSessionToken = sessionToken ?? null;
   doConnect();
 }
 
@@ -35,6 +37,10 @@ function doConnect() {
 
   socket.onopen = () => {
     console.log("[WS] Connected");
+    // Send AUTH handshake first
+    if (socket.readyState === WebSocket.OPEN && currentSessionToken) {
+      socket.send(JSON.stringify({ type: "AUTH", sessionToken: currentSessionToken }));
+    }
     useOfficeStore.getState().setConnected(true);
     // Send PING to get current agent statuses
     if (socket.readyState === WebSocket.OPEN) {
@@ -44,7 +50,18 @@ function doConnect() {
 
   socket.onmessage = (evt) => {
     try {
-      const event = GatewayEventSchema.parse(JSON.parse(evt.data));
+      const msg = JSON.parse(evt.data);
+      // Handle AUTH_FAILED: clear stale connection, redirect to re-pair
+      if (msg.type === "AUTH_FAILED") {
+        console.log("[WS] AUTH_FAILED — clearing connection and redirecting to /pair");
+        cleanup();
+        currentUrl = null;
+        const { clearConnection } = require("@/lib/storage");
+        clearConnection();
+        window.location.href = "/pair";
+        return;
+      }
+      const event = GatewayEventSchema.parse(msg);
       useOfficeStore.getState().handleEvent(event);
     } catch (err) {
       console.error("[WS] Invalid event:", err);

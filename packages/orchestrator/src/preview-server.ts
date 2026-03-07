@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "child_process";
+import { existsSync } from "fs";
 import path from "path";
 
 const STATIC_PORT = 9100;
@@ -19,6 +20,10 @@ class PreviewServer {
    * Returns the preview URL for the given file.
    */
   serve(filePath: string): string | undefined {
+    if (!existsSync(filePath)) {
+      console.log(`[PreviewServer] File not found: ${filePath}`);
+      return undefined;
+    }
     const dir = path.dirname(filePath);
     const fileName = path.basename(filePath);
 
