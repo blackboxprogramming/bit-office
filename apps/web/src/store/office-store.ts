@@ -75,6 +75,7 @@ export interface ProjectSummary {
     previewPort?: number;
   };
   tokenUsage?: { inputTokens: number; outputTokens: number };
+  ratings?: Record<string, number>;
 }
 
 interface OfficeStore {

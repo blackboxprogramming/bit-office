@@ -5,7 +5,7 @@ import { telegramChannel } from "./telegram-channel.js";
 import { config, hasSetupRun, reloadConfig, saveConfig } from "./config.js";
 import { runSetup } from "./setup.js";
 import { detectBackends, getBackend, getAllBackends } from "./backends.js";
-import { createOrchestrator, previewServer, type Orchestrator, type OrchestratorEvent, type TeamPhaseChangedEvent } from "@bit-office/orchestrator";
+import { createOrchestrator, previewServer, recordProjectRatings, type Orchestrator, type OrchestratorEvent, type TeamPhaseChangedEvent } from "@bit-office/orchestrator";
 import type { Command, GatewayEvent, UserRole } from "@office/shared";
 import type { CommandMeta } from "./transport.js";
 import { DEFAULT_AGENT_DEFS, type AgentDefinition } from "@office/shared";
@@ -16,7 +16,7 @@ import path from "path";
 import os from "os";
 import { ProcessScanner } from "./process-scanner.js";
 import { ExternalOutputReader } from "./external-output-reader.js";
-import { loadTeamState, saveTeamState, clearTeamState, type TeamState, type PersistedAgent, bufferEvent, archiveProject, resetProjectBuffer, setProjectName, listProjects, loadProject, loadProjectBuffer } from "./team-state.js";
+import { loadTeamState, saveTeamState, clearTeamState, type TeamState, type PersistedAgent, bufferEvent, archiveProject, resetProjectBuffer, setProjectName, listProjects, loadProject, loadProjectBuffer, rateProject } from "./team-state.js";
 
 // Register all channels — each one self-activates if configured
 registerChannel(wsChannel);
@@ -663,6 +663,11 @@ function handleCommand(parsed: Command, meta: CommandMeta) {
         author,
         timestamp: Date.now(),
       });
+      break;
+    }
+    case "RATE_PROJECT": {
+      rateProject(parsed.ratings, parsed.projectId);
+      recordProjectRatings(parsed.ratings);
       break;
     }
     case "LIST_PROJECTS": {

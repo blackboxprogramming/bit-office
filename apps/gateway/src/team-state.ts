@@ -90,6 +90,8 @@ export interface TokenUsageSummary {
   outputTokens: number;
 }
 
+export type ProjectRatings = Record<string, number>;
+
 export interface ProjectArchive {
   id: string;
   name: string;
@@ -100,6 +102,7 @@ export interface ProjectArchive {
   events: GatewayEvent[];
   preview?: ProjectPreview;
   tokenUsage?: TokenUsageSummary;
+  ratings?: ProjectRatings;
 }
 
 export interface ProjectSummary {
@@ -111,6 +114,7 @@ export interface ProjectSummary {
   eventCount: number;
   preview?: ProjectPreview;
   tokenUsage?: TokenUsageSummary;
+  ratings?: ProjectRatings;
 }
 
 /** In-memory event buffer for the current project */
@@ -276,6 +280,7 @@ export function listProjects(): ProjectSummary[] {
           eventCount: raw.events.length,
           preview: raw.preview,
           tokenUsage: raw.tokenUsage,
+          ratings: raw.ratings,
         });
       } catch { /* skip corrupt files */ }
     }
@@ -296,4 +301,30 @@ export function loadProject(id: string): ProjectArchive | null {
     }
   } catch { /* corrupt */ }
   return null;
+}
+
+/** Rate a project archive by ID, or the most recent one if no ID given */
+export function rateProject(ratings: ProjectRatings, projectId?: string): boolean {
+  if (!existsSync(PROJECTS_DIR)) return false;
+  try {
+    let filePath: string;
+    if (projectId) {
+      const safeId = projectId.replace(/[/\\]/g, "");
+      filePath = path.join(PROJECTS_DIR, `${safeId}.json`);
+      if (!path.resolve(filePath).startsWith(path.resolve(PROJECTS_DIR))) return false;
+    } else {
+      const files = readdirSync(PROJECTS_DIR).filter(f => f.endsWith(".json")).sort().reverse();
+      if (files.length === 0) return false;
+      filePath = path.join(PROJECTS_DIR, files[0]);
+    }
+    if (!existsSync(filePath)) return false;
+    const archive = JSON.parse(readFileSync(filePath, "utf-8")) as ProjectArchive;
+    archive.ratings = ratings;
+    writeFileSync(filePath, JSON.stringify(archive), "utf-8");
+    console.log(`[TeamState] Rated project "${archive.name}":`, ratings);
+    return true;
+  } catch (e) {
+    console.log(`[TeamState] Failed to rate project: ${e}`);
+    return false;
+  }
 }

@@ -118,6 +118,12 @@ export const SuggestCommand = z.object({
   author: z.string().max(30).optional(),
 });
 
+export const RateProjectCommand = z.object({
+  type: z.literal("RATE_PROJECT"),
+  projectId: z.string().optional(),
+  ratings: z.record(z.string(), z.number().min(1).max(5)),
+});
+
 export const ListProjectsCommand = z.object({
   type: z.literal("LIST_PROJECTS"),
 });
@@ -145,6 +151,7 @@ export const CommandSchema = z.discriminatedUnion("type", [
   SaveAgentDefCommand,
   DeleteAgentDefCommand,
   SuggestCommand,
+  RateProjectCommand,
   ListProjectsCommand,
   LoadProjectCommand,
 ]);
@@ -166,6 +173,7 @@ export type EndProjectCommand = z.infer<typeof EndProjectCommand>;
 export type SaveAgentDefCommand = z.infer<typeof SaveAgentDefCommand>;
 export type DeleteAgentDefCommand = z.infer<typeof DeleteAgentDefCommand>;
 export type SuggestCommand = z.infer<typeof SuggestCommand>;
+export type RateProjectCommand = z.infer<typeof RateProjectCommand>;
 export type ListProjectsCommand = z.infer<typeof ListProjectsCommand>;
 export type LoadProjectCommand = z.infer<typeof LoadProjectCommand>;
 export type Command = z.infer<typeof CommandSchema>;

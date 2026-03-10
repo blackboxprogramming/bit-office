@@ -9,7 +9,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/longyangxi/bit-office/pulls)
 
-**Watch your AI agents work together in a pixel-art office. Claude, Codex, Gemini, Aider — one team, one flow.**
+**AI agents that learn from your feedback. Claude, Codex, Gemini, Aider — one team, getting better every project.**
 
 [Quick Start](#quick-start) | [Features](#features) | [Team Workflow](#team-workflow) | [Architecture](#architecture) | [Contributing](#contributing)
 
@@ -21,6 +21,8 @@
 ## What is Bit Office
 
 Bit Office gives AI automation a **visible, controllable workspace**. Different AI models collaborate as one team under a Team Leader — planning, coding, reviewing, and delivering in a single flow, all rendered in a live pixel-art office you can watch, control, and share.
+
+What makes it different: **agents get better over time**. Rate each project on creativity, visual quality, interaction, completeness, and engagement. Your ratings and review patterns are stored as persistent memory — the next time the team plans a project, they know what scored low and actively improve on it.
 
 ## Quick Start
 
@@ -52,10 +54,18 @@ pipeline, letting each model focus on what it does best.
 Watch agents work in real time inside a **PixiJS pixel-art office**,
 with live status, logs, and progress visualization.
 
-### Instant Preview Loop
+### Instant Preview & Rating
 
-Every completed task generates an **auto preview** --- static HTML,
-build output, or a running dev server.
+Every completed task generates an **auto preview**. Rate the result
+across five dimensions — your feedback becomes **persistent memory**
+that shapes how agents approach the next project.
+
+### Self-Improving Agents
+
+Review patterns, tech preferences, and project ratings are stored
+across sessions. Agents **learn what you value** and adapt — low
+visual scores lead to richer designs, recurring review failures get
+avoided automatically.
 
 ### Token Cost Visibility
 
@@ -84,7 +94,9 @@ results and build on previous work.
 | **Create** | Team Lead gathers intent and scope | Describe what to build |
 | **Design** | Team Lead proposes implementation plan | Approve or request changes |
 | **Execute** | Developer implements, Reviewer validates | Monitor or cancel |
-| **Complete** | Preview and summary delivered | Give feedback or end project |
+| **Complete** | Preview and summary delivered | Rate, give feedback, or end project |
+
+Ratings persist as agent memory. The next project starts with lessons from the last one.
 
 Full details in [team-workflow.md](team-workflow.md).
 

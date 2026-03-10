@@ -261,7 +261,7 @@ ASSIGNMENTS:
 - Do NOT delegate. Do NOT write code. Do NOT use @AgentName: syntax outside [PLAN] tags.
 
 If the user hasn't described their project yet, greet them and ask what they'd like to build.
-
+{{memory}}
 Team:
 {{teamRoster}}
 

@@ -350,6 +350,22 @@ export default function ProjectHistory({ isOpen, onClose, onPreview }: {
                         }}>
                           {p.agentNames.join(" / ")}
                         </div>
+                        {/* Ratings */}
+                        {p.ratings && Object.keys(p.ratings).length > 0 && (
+                          <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                            {Object.entries(p.ratings).map(([key, val]) => {
+                              const stars = Math.min(5, Math.max(0, Math.round(val)));
+                              return (
+                                <span key={key} style={{
+                                  fontSize: 9, fontFamily: "monospace",
+                                  color: "rgba(232, 176, 64, 0.7)",
+                                }}>
+                                  {key.slice(0, 4)} {"★".repeat(stars)}{"☆".repeat(5 - stars)}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </button>
                       {/* Preview button */}
                       {hasPreview(p.preview) && (

@@ -90,10 +90,10 @@ export class Orchestrator extends EventEmitter<OrchestratorEventMap> {
     const backend = this.backends.get(opts.backend ?? this.defaultBackendId)
       ?? this.backends.get(this.defaultBackendId)!;
 
-    // Inject memory context for dev workers (not leader, not reviewer)
+    // Inject memory context for dev workers and leaders (not reviewers)
     const roleLower = opts.role.toLowerCase();
-    const isDevWorker = !roleLower.includes("review") && !roleLower.includes("lead");
-    const memoryContext = isDevWorker ? getMemoryContext() : "";
+    const isReviewer = roleLower.includes("review");
+    const memoryContext = !isReviewer ? getMemoryContext() : "";
 
     const session = new AgentSession({
       agentId: opts.agentId,

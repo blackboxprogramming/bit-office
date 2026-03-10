@@ -37,6 +37,8 @@ export interface ProjectRecord {
   completedAt: number;
   /** Whether the project passed review */
   reviewPassed: boolean;
+  /** User ratings (e.g. creativity, visual, interaction) — added post-completion */
+  ratings?: Record<string, number>;
 }
 
 interface MemoryStore {
@@ -159,6 +161,21 @@ export function recordTechPreference(tech: string): void {
 }
 
 /**
+ * Update the most recent project record with user ratings.
+ * Called when user rates a project after preview.
+ */
+export function recordProjectRatings(ratings: Record<string, number>): void {
+  const store = loadStore();
+  if (store.projectHistory.length === 0) return;
+  store.projectHistory[store.projectHistory.length - 1].ratings = ratings;
+  saveStore(store);
+
+  const avg = Object.values(ratings);
+  const mean = avg.length > 0 ? (avg.reduce((a, b) => a + b, 0) / avg.length).toFixed(1) : "?";
+  console.log(`[Memory] Updated latest project ratings (avg ${mean}/5)`);
+}
+
+/**
  * Get memory context to inject into agent prompts.
  * Returns a formatted string, or empty string if no relevant memory.
  */
@@ -177,6 +194,21 @@ export function getMemoryContext(): string {
   if (store.techPreferences.length > 0) {
     const recent = store.techPreferences.slice(-3);
     sections.push(`USER'S PREFERRED TECH: ${recent.join(", ")}`);
+  }
+
+  // Recent project history with ratings (last 3 rated projects)
+  const rated = store.projectHistory.filter(p => p.ratings && Object.keys(p.ratings).length > 0).slice(-3);
+  if (rated.length > 0) {
+    const lines = rated.map(p => {
+      const r = p.ratings!;
+      const scores = Object.entries(r).map(([k, v]) => `${k}:${v}/5`).join(", ");
+      const avg = Object.values(r).reduce((a, b) => a + b, 0) / Object.values(r).length;
+      const weak = Object.entries(r).filter(([, v]) => v <= 2).map(([k]) => k);
+      let line = `- "${p.summary.slice(0, 60)}" [${scores}] avg=${avg.toFixed(1)}`;
+      if (weak.length > 0) line += ` → improve: ${weak.join(", ")}`;
+      return line;
+    });
+    sections.push(`PAST PROJECT RATINGS (learn from user feedback):\n${lines.join("\n")}`);
   }
 
   if (sections.length === 0) return "";

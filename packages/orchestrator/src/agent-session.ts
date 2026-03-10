@@ -9,6 +9,7 @@ import { nanoid } from "nanoid";
 import type { AIBackend } from "./ai-backend.js";
 import type { AgentStatus, TaskResultPayload, OrchestratorEvent } from "./types.js";
 import type { TemplateName } from "./prompt-templates.js";
+import { getMemoryContext } from "./memory.js";
 
 /* ── Persist session IDs across restarts ────────────────────────── */
 const SESSION_FILE = path.join(homedir(), ".bit-office", "agent-sessions.json");
@@ -225,7 +226,7 @@ export class AgentSession {
         teamRoster: teamContext ?? "",
         originalTask,
         prompt,
-        memory: this._memoryContext,
+        memory: this._memoryContext || getMemoryContext(),
         soloHint: this.teamId ? "" : `- You are a SOLO developer. Do NOT delegate, assign tasks, or mention other team members. Do ALL the work yourself.
 - PROJECT DIRECTORY: When creating files, first create a dedicated project directory (short kebab-case name, e.g. "snake-game"). Do ALL work inside it. Report it as PROJECT_DIR: <directory-name> in your output. If the user is just chatting (no code needed), skip this.`,
       };
