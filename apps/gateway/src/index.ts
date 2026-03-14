@@ -456,6 +456,19 @@ function handleCommand(parsed: Command, meta: CommandMeta) {
       });
       break;
     }
+    case "UPLOAD_IMAGE": {
+      const imgDir = path.join(config.defaultWorkspace, ".images");
+      if (!existsSync(imgDir)) mkdirSync(imgDir, { recursive: true });
+      const imgPath = path.join(imgDir, parsed.filename);
+      try {
+        writeFileSync(imgPath, Buffer.from(parsed.data, "base64"));
+        console.log(`[Gateway] UPLOAD_IMAGE: saved ${parsed.filename} (${Math.round(parsed.data.length * 0.75 / 1024)}KB)`);
+        publishEvent({ type: "IMAGE_UPLOADED", requestId: parsed.requestId, path: imgPath });
+      } catch (err) {
+        console.error(`[Gateway] UPLOAD_IMAGE failed: ${(err as Error).message}`);
+      }
+      break;
+    }
     case "OPEN_FILE": {
       const raw = parsed.path;
       const resolved = path.resolve(config.defaultWorkspace, raw);

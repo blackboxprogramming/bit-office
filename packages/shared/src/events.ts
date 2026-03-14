@@ -207,6 +207,12 @@ export const FolderPickedEvent = z.object({
   path: z.string(),
 });
 
+export const ImageUploadedEvent = z.object({
+  type: z.literal("IMAGE_UPLOADED"),
+  requestId: z.string(),
+  path: z.string(),
+});
+
 export const GatewayEventSchema = z.discriminatedUnion("type", [
   AgentsSyncEvent,
   AgentStatusEvent,
@@ -229,6 +235,7 @@ export const GatewayEventSchema = z.discriminatedUnion("type", [
   ProjectDataEvent,
   PreviewReadyEvent,
   FolderPickedEvent,
+  ImageUploadedEvent,
 ]);
 
 export type TokenUsage = z.infer<typeof TokenUsage>;
@@ -254,4 +261,5 @@ export type ProjectListEvent = z.infer<typeof ProjectListEvent>;
 export type ProjectDataEvent = z.infer<typeof ProjectDataEvent>;
 export type PreviewReadyEvent = z.infer<typeof PreviewReadyEvent>;
 export type FolderPickedEvent = z.infer<typeof FolderPickedEvent>;
+export type ImageUploadedEvent = z.infer<typeof ImageUploadedEvent>;
 export type GatewayEvent = z.infer<typeof GatewayEventSchema>;

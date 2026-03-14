@@ -119,6 +119,15 @@ export const PickFolderCommand = z.object({
   requestId: z.string(),
 });
 
+export const UploadImageCommand = z.object({
+  type: z.literal("UPLOAD_IMAGE"),
+  requestId: z.string(),
+  /** base64-encoded image data (without data: prefix) */
+  data: z.string(),
+  /** Original filename or generated name */
+  filename: z.string(),
+});
+
 export const SuggestCommand = z.object({
   type: z.literal("SUGGEST"),
   text: z.string().max(500),
@@ -158,6 +167,7 @@ export const CommandSchema = z.discriminatedUnion("type", [
   SaveAgentDefCommand,
   DeleteAgentDefCommand,
   PickFolderCommand,
+  UploadImageCommand,
   SuggestCommand,
   RateProjectCommand,
   ListProjectsCommand,
@@ -181,6 +191,7 @@ export type EndProjectCommand = z.infer<typeof EndProjectCommand>;
 export type SaveAgentDefCommand = z.infer<typeof SaveAgentDefCommand>;
 export type DeleteAgentDefCommand = z.infer<typeof DeleteAgentDefCommand>;
 export type PickFolderCommand = z.infer<typeof PickFolderCommand>;
+export type UploadImageCommand = z.infer<typeof UploadImageCommand>;
 export type SuggestCommand = z.infer<typeof SuggestCommand>;
 export type RateProjectCommand = z.infer<typeof RateProjectCommand>;
 export type ListProjectsCommand = z.infer<typeof ListProjectsCommand>;

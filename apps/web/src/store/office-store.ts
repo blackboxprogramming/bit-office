@@ -3,6 +3,8 @@ import type { AgentStatus, GatewayEvent, TaskResultPayload, AgentDefinition, Use
 
 /** Pending PICK_FOLDER callbacks: requestId → callback */
 export const folderPickCallbacks = new Map<string, (path: string) => void>();
+/** Pending UPLOAD_IMAGE callbacks: requestId → callback */
+export const imageUploadCallbacks = new Map<string, (path: string) => void>();
 
 export interface ChatMessage {
   id: string;
@@ -699,11 +701,18 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
           return { agents, pendingPreviewUrl: event.url };
         }
         case "FOLDER_PICKED": {
-          // Dispatch to pending callback
           const cb = folderPickCallbacks.get(event.requestId);
           if (cb) {
             cb(event.path);
             folderPickCallbacks.delete(event.requestId);
+          }
+          return { agents };
+        }
+        case "IMAGE_UPLOADED": {
+          const cb = imageUploadCallbacks.get(event.requestId);
+          if (cb) {
+            cb(event.path);
+            imageUploadCallbacks.delete(event.requestId);
           }
           return { agents };
         }

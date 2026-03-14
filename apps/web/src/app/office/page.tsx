@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useOfficeStore, folderPickCallbacks } from "@/store/office-store";
+import { useOfficeStore, folderPickCallbacks, imageUploadCallbacks } from "@/store/office-store";
 import type { ChatMessage, TeamChatMessage, TeamPhaseState } from "@/store/office-store";
 import { connect, sendCommand } from "@/lib/connection";
 import { getConnection } from "@/lib/storage";
@@ -2187,6 +2187,7 @@ export default function OfficePage() {
   const [mobileTeamOpen, setMobileTeamOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState<"team" | "agents" | "external">("agents");
   const [prompt, setPrompt] = useState("");
+  const [pendingImages, setPendingImages] = useState<{ name: string; dataUrl: string; base64: string }[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Editor state
@@ -2497,25 +2498,90 @@ export default function OfficePage() {
     setMobileTeamOpen(false);
   }, [agents, clearTeamMessages, confirm]);
 
-  const handleRunTask = useCallback(() => {
-    if (!selectedAgent || !prompt.trim()) return;
+  const addImageFromFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1];
+      const ext = file.name.split(".").pop() || "png";
+      const name = `image-${nanoid(6)}.${ext}`;
+      setPendingImages((prev) => [...prev, { name, dataUrl, base64 }]);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handlePasteImage = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) addImageFromFile(file);
+        return;
+      }
+    }
+  }, [addImageFromFile]);
+
+  const handleDropImage = useCallback((e: React.DragEvent) => {
+    const files = e.dataTransfer?.files;
+    if (!files) return;
+    for (const file of files) {
+      if (file.type.startsWith("image/")) {
+        e.preventDefault();
+        addImageFromFile(file);
+      }
+    }
+  }, [addImageFromFile]);
+
+  const handleRunTask = useCallback(async () => {
+    if (!selectedAgent || (!prompt.trim() && pendingImages.length === 0)) return;
     const agent = agents.get(selectedAgent);
-    if (agent?.isExternal) return; // External agents are read-only
+    if (agent?.isExternal) return;
+
+    // Upload images first, collect paths
+    const imagePaths: string[] = [];
+    if (pendingImages.length > 0) {
+      const uploads = pendingImages.map((img) => {
+        return new Promise<string>((resolve) => {
+          const rid = nanoid(6);
+          imageUploadCallbacks.set(rid, resolve);
+          sendCommand({ type: "UPLOAD_IMAGE", requestId: rid, data: img.base64, filename: img.name });
+          // Timeout fallback
+          setTimeout(() => { imageUploadCallbacks.delete(rid); resolve(""); }, 5000);
+        });
+      });
+      const paths = await Promise.all(uploads);
+      for (const p of paths) { if (p) imagePaths.push(p); }
+    }
+
+    // Build prompt with image references
+    let finalPrompt = prompt.trim();
+    if (imagePaths.length > 0) {
+      const refs = imagePaths.map((p) => `[Attached image: ${p}]`).join("\n");
+      finalPrompt = finalPrompt ? `${refs}\n\n${finalPrompt}` : refs;
+    }
+
     const taskId = nanoid();
-    addUserMessage(selectedAgent, taskId, prompt.trim());
+    const displayText = pendingImages.length > 0
+      ? `${pendingImages.map((i) => `[Image: ${i.name}]`).join(" ")}${finalPrompt ? "\n" + prompt.trim() : ""}`
+      : finalPrompt;
+    addUserMessage(selectedAgent, taskId, displayText);
     const repoPath = agentWorkDirMap.get(selectedAgent);
     sendCommand({
       type: "RUN_TASK",
       agentId: selectedAgent,
       taskId,
-      prompt: prompt.trim(),
+      prompt: finalPrompt,
       repoPath,
       name: agent?.name,
       role: agent?.role,
       personality: agent?.personality,
     });
     setPrompt("");
-  }, [selectedAgent, prompt, addUserMessage, agents]);
+    setPendingImages([]);
+  }, [selectedAgent, prompt, pendingImages, addUserMessage, agents]);
 
   const handleCancel = useCallback(() => {
     if (!selectedAgent) return;
@@ -3041,7 +3107,12 @@ export default function OfficePage() {
                     </div>
                   )}
                   {isExpanded && agentState && !isExternal && (
-                    <div style={{
+                    <div
+                      onPaste={handlePasteImage}
+                      onDragOver={(e) => { if (e.dataTransfer?.types?.includes("Files")) { e.preventDefault(); e.currentTarget.style.outline = "2px solid #e8b04060"; } }}
+                      onDragLeave={(e) => { e.currentTarget.style.outline = "none"; }}
+                      onDrop={(e) => { e.currentTarget.style.outline = "none"; handleDropImage(e); }}
+                      style={{
                       flex: 1,
                       display: "flex",
                       flexDirection: "column",
@@ -3143,6 +3214,33 @@ export default function OfficePage() {
                         </div>
                       )}
 
+                      {/* Pending image previews */}
+                      {pendingImages.length > 0 && (
+                        <div style={{
+                          padding: "6px 10px", borderTop: "1px solid #2e2448",
+                          backgroundColor: "#1a1530", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center",
+                        }}>
+                          {pendingImages.map((img, i) => (
+                            <div key={i} style={{ position: "relative", display: "inline-block" }}>
+                              <img src={img.dataUrl} alt={img.name} style={{ height: 48, borderRadius: 4, border: "1px solid #3d2e54" }} />
+                              <button
+                                onClick={() => setPendingImages((prev) => prev.filter((_, j) => j !== i))}
+                                style={{
+                                  position: "absolute", top: -4, right: -4,
+                                  width: 16, height: 16, borderRadius: "50%",
+                                  border: "none", backgroundColor: "#e04848", color: "#fff",
+                                  fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                  padding: 0, lineHeight: 1,
+                                }}
+                              >{"\u00d7"}</button>
+                            </div>
+                          ))}
+                          <span style={{ fontSize: 10, color: "#7a6858", fontFamily: "monospace" }}>
+                            {pendingImages.length} image{pendingImages.length > 1 ? "s" : ""} attached
+                          </span>
+                        </div>
+                      )}
+
                       {/* Input / Cancel */}
                       {(() => {
                         const cardPhase = agentState?.isTeamLead ? getAgentPhase(agent.agentId) : null;
@@ -3229,12 +3327,12 @@ export default function OfficePage() {
                                   />
                                   <button
                                     onClick={handleRunTask}
-                                    disabled={!prompt.trim()}
+                                    disabled={!prompt.trim() && pendingImages.length === 0}
                                     style={{
                                       padding: "9px 14px", border: "none",
-                                      backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
-                                      color: prompt.trim() ? "#16122a" : "#5a4838",
-                                      fontSize: 13, cursor: prompt.trim() ? "pointer" : "default",
+                                      backgroundColor: (prompt.trim() || pendingImages.length > 0) ? "#e8b040" : "#272040",
+                                      color: (prompt.trim() || pendingImages.length > 0) ? "#16122a" : "#5a4838",
+                                      fontSize: 13, cursor: (prompt.trim() || pendingImages.length > 0) ? "pointer" : "default",
                                       fontWeight: 700, fontFamily: "monospace",
                                     }}
                                   >Send</button>
@@ -3271,12 +3369,12 @@ export default function OfficePage() {
                                   />
                                   <button
                                     onClick={handleRunTask}
-                                    disabled={!prompt.trim()}
+                                    disabled={!prompt.trim() && pendingImages.length === 0}
                                     style={{
                                       padding: "9px 14px", border: "none",
-                                      backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
-                                      color: prompt.trim() ? "#16122a" : "#5a4838",
-                                      fontSize: 13, cursor: prompt.trim() ? "pointer" : "default",
+                                      backgroundColor: (prompt.trim() || pendingImages.length > 0) ? "#e8b040" : "#272040",
+                                      color: (prompt.trim() || pendingImages.length > 0) ? "#16122a" : "#5a4838",
+                                      fontSize: 13, cursor: (prompt.trim() || pendingImages.length > 0) ? "pointer" : "default",
                                       fontWeight: 700, fontFamily: "monospace",
                                     }}
                                   >Send</button>
@@ -3297,12 +3395,12 @@ export default function OfficePage() {
                                   />
                                   <button
                                     onClick={handleRunTask}
-                                    disabled={!prompt.trim()}
+                                    disabled={!prompt.trim() && pendingImages.length === 0}
                                     style={{
                                       padding: "9px 14px", border: "none",
-                                      backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
-                                      color: prompt.trim() ? "#16122a" : "#5a4838",
-                                      fontSize: 13, cursor: prompt.trim() ? "pointer" : "default",
+                                      backgroundColor: (prompt.trim() || pendingImages.length > 0) ? "#e8b040" : "#272040",
+                                      color: (prompt.trim() || pendingImages.length > 0) ? "#16122a" : "#5a4838",
+                                      fontSize: 13, cursor: (prompt.trim() || pendingImages.length > 0) ? "pointer" : "default",
                                       fontWeight: 700, fontFamily: "monospace",
                                     }}
                                   >Send</button>
@@ -3339,12 +3437,12 @@ export default function OfficePage() {
                                 />
                                 <button
                                   onClick={handleRunTask}
-                                  disabled={!prompt.trim()}
+                                  disabled={!prompt.trim() && pendingImages.length === 0}
                                   style={{
                                     padding: "9px 14px", border: "none",
-                                    backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
-                                    color: prompt.trim() ? "#16122a" : "#5a4838",
-                                    fontSize: 13, cursor: prompt.trim() ? "pointer" : "default",
+                                    backgroundColor: (prompt.trim() || pendingImages.length > 0) ? "#e8b040" : "#272040",
+                                    color: (prompt.trim() || pendingImages.length > 0) ? "#16122a" : "#5a4838",
+                                    fontSize: 13, cursor: (prompt.trim() || pendingImages.length > 0) ? "pointer" : "default",
                                     fontWeight: 700, fontFamily: "monospace",
                                     transition: "background-color 0.1s",
                                   }}
@@ -3827,12 +3925,12 @@ export default function OfficePage() {
                         />
                         <button
                           onClick={handleRunTask}
-                          disabled={!prompt.trim()}
+                          disabled={!prompt.trim() && pendingImages.length === 0}
                           style={{
                             padding: "9px 14px", border: "none",
-                            backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
-                            color: prompt.trim() ? "#16122a" : "#5a4838",
-                            fontSize: 13, cursor: prompt.trim() ? "pointer" : "default",
+                            backgroundColor: (prompt.trim() || pendingImages.length > 0) ? "#e8b040" : "#272040",
+                            color: (prompt.trim() || pendingImages.length > 0) ? "#16122a" : "#5a4838",
+                            fontSize: 13, cursor: (prompt.trim() || pendingImages.length > 0) ? "pointer" : "default",
                             fontWeight: 700, fontFamily: "monospace",
                           }}
                         >Send</button>
@@ -3869,12 +3967,12 @@ export default function OfficePage() {
                         />
                         <button
                           onClick={handleRunTask}
-                          disabled={!prompt.trim()}
+                          disabled={!prompt.trim() && pendingImages.length === 0}
                           style={{
                             padding: "9px 14px", border: "none",
-                            backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
-                            color: prompt.trim() ? "#16122a" : "#5a4838",
-                            fontSize: 13, cursor: prompt.trim() ? "pointer" : "default",
+                            backgroundColor: (prompt.trim() || pendingImages.length > 0) ? "#e8b040" : "#272040",
+                            color: (prompt.trim() || pendingImages.length > 0) ? "#16122a" : "#5a4838",
+                            fontSize: 13, cursor: (prompt.trim() || pendingImages.length > 0) ? "pointer" : "default",
                             fontWeight: 700, fontFamily: "monospace",
                           }}
                         >Send</button>
@@ -3895,12 +3993,12 @@ export default function OfficePage() {
                         />
                         <button
                           onClick={handleRunTask}
-                          disabled={!prompt.trim()}
+                          disabled={!prompt.trim() && pendingImages.length === 0}
                           style={{
                             padding: "9px 14px", border: "none",
-                            backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
-                            color: prompt.trim() ? "#16122a" : "#5a4838",
-                            fontSize: 13, cursor: prompt.trim() ? "pointer" : "default",
+                            backgroundColor: (prompt.trim() || pendingImages.length > 0) ? "#e8b040" : "#272040",
+                            color: (prompt.trim() || pendingImages.length > 0) ? "#16122a" : "#5a4838",
+                            fontSize: 13, cursor: (prompt.trim() || pendingImages.length > 0) ? "pointer" : "default",
                             fontWeight: 700, fontFamily: "monospace",
                           }}
                         >Send</button>
@@ -3937,12 +4035,12 @@ export default function OfficePage() {
                       />
                       <button
                         onClick={handleRunTask}
-                        disabled={!prompt.trim()}
+                        disabled={!prompt.trim() && pendingImages.length === 0}
                         style={{
                           padding: "9px 14px", border: "none",
-                          backgroundColor: prompt.trim() ? "#e8b040" : "#272040",
-                          color: prompt.trim() ? "#16122a" : "#5a4838",
-                          fontSize: 13, cursor: prompt.trim() ? "pointer" : "default",
+                          backgroundColor: (prompt.trim() || pendingImages.length > 0) ? "#e8b040" : "#272040",
+                          color: (prompt.trim() || pendingImages.length > 0) ? "#16122a" : "#5a4838",
+                          fontSize: 13, cursor: (prompt.trim() || pendingImages.length > 0) ? "pointer" : "default",
                           fontWeight: 700, fontFamily: "monospace",
                         }}
                       >Send</button>
