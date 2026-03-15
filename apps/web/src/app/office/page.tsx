@@ -3056,7 +3056,7 @@ export default function OfficePage() {
           </button>
 
           {/* Theme picker */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 8, alignItems: "center", marginLeft: consoleMode ? 6 : 0 }}>
             {Object.entries(TERM_THEMES).map(([key, theme]) => (
               <button
                 key={key}
