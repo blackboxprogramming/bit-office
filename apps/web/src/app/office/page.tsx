@@ -2906,7 +2906,8 @@ export default function OfficePage() {
           flexShrink: 0,
           height: "100vh",
           backgroundColor: TERM_PANEL,
-          borderLeft: consoleMode ? "none" : `1px solid ${TERM_GREEN}15`,
+          border: "none",
+          borderLeft: consoleMode ? undefined : `1px solid ${TERM_GREEN}15`,
           boxShadow: consoleMode ? "none" : `inset 1px 0 12px ${TERM_GREEN}06`,
           display: "flex",
           flexDirection: "row",
@@ -2914,7 +2915,7 @@ export default function OfficePage() {
           transition: "width 0.3s ease",
         }}>
           {/* ── Main content area ── */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, width: consoleMode ? "90%" : undefined, maxWidth: consoleMode ? "90%" : undefined, margin: consoleMode ? "0 auto" : undefined }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, width: consoleMode ? "90%" : undefined, maxWidth: consoleMode ? "90%" : undefined, margin: consoleMode ? "10px auto" : undefined, border: consoleMode ? `1px solid ${TERM_GREEN}20` : undefined, borderRadius: consoleMode ? 8 : undefined }}>
 
           {(() => {
             // Shared agent row renderer
@@ -2946,9 +2947,17 @@ export default function OfficePage() {
                       flexShrink: 0,
                     }}
                   >
-                    <span style={{ color: "#7a6858", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.role?.split("—")[0]?.trim()}</span>
+                    <span style={{ color: TERM_TEXT }}>
+                      {agent.role?.split("—")[0]?.trim()}
+                      {agent.backend && <span style={{ color: TERM_DIM }}> ({BACKEND_OPTIONS.find((b) => b.id === agent.backend)?.name ?? agent.backend})</span>}
+                    </span>
+                    {agent.role?.includes("—") && (
+                      <span style={{ color: TERM_DIM, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>
+                        {agent.role.split("—")[1]?.trim()}
+                      </span>
+                    )}
                     <span style={{ flex: 1 }} />
-                    <span style={{ color: cfg.color, fontSize: 10, fontFamily: TERM_FONT }}>{cfg.label}</span>
+                    <span style={{ color: cfg.color, fontSize: 10 }}>{cfg.label}</span>
                     {agentState && agentState.tokenUsage.inputTokens > 0 && <TokenBadge inputTokens={agentState.tokenUsage.inputTokens} outputTokens={agentState.tokenUsage.outputTokens} />}
                     {!agentState?.teamId && isOwner && (
                       <span
@@ -2968,30 +2977,31 @@ export default function OfficePage() {
                     <div style={{
                       flex: 1,
                       display: "flex", flexDirection: "column",
-                      backgroundColor: "#0a0a10",
+                      backgroundColor: TERM_BG,
                       minHeight: 0,
                       overflow: "hidden",
                     }}>
                       {/* Compact info header */}
                       <div style={{
-                        padding: "10px 14px",
-                        borderBottom: "1px solid #0e1a0e",
+                        padding: "8px 12px",
+                        borderBottom: `1px solid ${TERM_BORDER}`,
+                        backgroundColor: TERM_SURFACE,
                         flexShrink: 0,
                       }}>
-                        <div style={{ fontSize: 11, color: "#5aacff", marginBottom: 6, fontFamily: "monospace", letterSpacing: "0.05em" }}>
+                        <div style={{ fontSize: TERM_SIZE, color: TERM_GREEN, opacity: 0.6, marginBottom: 4, fontFamily: TERM_FONT, letterSpacing: "0.05em" }}>
                           EXTERNAL PROCESS
                         </div>
-                        <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#7a6858", fontFamily: "monospace", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: 12, fontSize: TERM_SIZE, color: TERM_DIM, fontFamily: TERM_FONT, flexWrap: "wrap" }}>
                           <span>{agentState.backend ?? "unknown"}</span>
                           <span>PID {agentState.pid ?? "\u2014"}</span>
-                          <span title={agentState.cwd ?? undefined} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+                          <span title={agentState.cwd ?? undefined} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>
                             {agentState.cwd ?? "\u2014"}
                           </span>
                         </div>
                       </div>
 
                       {/* Scrollable messages */}
-                      <div style={{
+                      <div className="crt-screen" style={{
                         flex: 1, overflowY: "auto", padding: "8px 10px",
                         display: "flex", flexDirection: "column",
                         minHeight: 0,
@@ -3009,9 +3019,9 @@ export default function OfficePage() {
 
                       {/* Read-only footer */}
                       <div style={{
-                        padding: "8px 10px",
-                        backgroundColor: "#182844", border: "1px solid #3b82f640",
-                        fontSize: 12, color: "#7ab8f5", fontFamily: "monospace",
+                        padding: "6px 12px",
+                        backgroundColor: TERM_SURFACE,
+                        fontSize: TERM_SIZE, color: TERM_DIM, fontFamily: TERM_FONT,
                         textAlign: "center", flexShrink: 0,
                       }}>
                         Read-only — this process is running externally
@@ -3173,7 +3183,7 @@ export default function OfficePage() {
                           return (
                             <div style={{
                               padding: "8px 10px", borderTop: "1px solid #152515",
-                              backgroundColor: "#0a0e0a", flexShrink: 0,
+                              backgroundColor: TERM_SURFACE, flexShrink: 0,
                             }}>
                               <div style={{ display: "flex", gap: 6 }}>
                                 <input
@@ -3206,7 +3216,7 @@ export default function OfficePage() {
                         return (
                           <div style={{
                             padding: "8px 10px", borderTop: "1px solid #152515",
-                            backgroundColor: "#0a0e0a", flexShrink: 0,
+                            backgroundColor: TERM_SURFACE, flexShrink: 0,
                           }}>
                             {isTeamMember ? (
                               <div style={{
@@ -3216,7 +3226,7 @@ export default function OfficePage() {
                               </div>
                             ) : cardPhase === "execute" ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                                <div style={{ display: "flex", gap: 0, alignItems: "center", borderTop: `1px solid ${TERM_BORDER}` }}>
+                                <div style={{ display: "flex", gap: 0, alignItems: "center", borderTop: "none" }}>
                                   <span style={{ color: busy ? TERM_DIM : TERM_GREEN, fontSize: TERM_SIZE, fontFamily: TERM_FONT, padding: "6px 0 6px 8px", flexShrink: 0, textShadow: busy ? "none" : TERM_GLOW }}>&gt;</span>
                                   <input
                                     value={prompt}
@@ -3242,7 +3252,7 @@ export default function OfficePage() {
                                 )}
                               </div>
                             ) : cardPhase === "design" && !busy ? (
-                              <div style={{ display: "flex", gap: 6, alignItems: "center", borderTop: `1px solid ${TERM_BORDER}`, padding: "4px 8px" }}>
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", borderTop: "none", padding: "4px 8px" }}>
                                 <button
                                   onClick={handleApprovePlan}
                                   style={{
@@ -3266,7 +3276,7 @@ export default function OfficePage() {
                                 />
                               </div>
                             ) : cardPhase === "complete" && !busy ? (
-                              <div style={{ display: "flex", gap: 6, alignItems: "center", borderTop: `1px solid ${TERM_BORDER}`, padding: "4px 8px" }}>
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", borderTop: "none", padding: "4px 8px" }}>
                                 <span style={{ color: TERM_DIM, fontSize: TERM_SIZE, fontFamily: TERM_FONT }}>&gt;</span>
                                 <input
                                   value={prompt}
@@ -3290,7 +3300,7 @@ export default function OfficePage() {
                                 >Close Project</button>
                               </div>
                             ) : (
-                              <div style={{ display: "flex", gap: 0, alignItems: "center", borderTop: `1px solid ${TERM_BORDER}` }}>
+                              <div style={{ display: "flex", gap: 0, alignItems: "center", borderTop: "none" }}>
                                 <span style={{ color: isAgentBusy ? TERM_DIM : TERM_GREEN, fontSize: TERM_SIZE, fontFamily: TERM_FONT, padding: "6px 0 6px 8px", flexShrink: 0, textShadow: isAgentBusy ? "none" : TERM_GLOW }}>&gt;</span>
                                 <input
                                   value={prompt}
@@ -3694,7 +3704,7 @@ export default function OfficePage() {
                 return (
                   <div style={{
                     padding: "8px 10px", borderTop: "1px solid #152515",
-                    backgroundColor: "#0a0e0a", flexShrink: 0,
+                    backgroundColor: TERM_SURFACE, flexShrink: 0,
                   }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <input
@@ -3727,7 +3737,7 @@ export default function OfficePage() {
               return (
                 <div style={{
                   padding: "8px 10px", borderTop: "1px solid #152515",
-                  backgroundColor: "#0a0e0a", flexShrink: 0,
+                  backgroundColor: TERM_SURFACE, flexShrink: 0,
                 }}>
                   {mobileIsTeamMember ? (
                     <div style={{
