@@ -2761,6 +2761,7 @@ export default function OfficePage() {
 
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [consoleMode, setConsoleMode] = useState(false);
+  const [sceneVisible, setSceneVisible] = useState(true); // delays scene mount until collapse animation ends
 
   const handleCreateShareLink = useCallback(async (shareRole: "collaborator" | "spectator") => {
     try {
@@ -2794,7 +2795,7 @@ export default function OfficePage() {
   return (
     <div style={{ height: "100vh", width: "100vw", position: "relative", overflow: "hidden", display: "flex" }}>
       {/* Game Scene — fills remaining space after sidebar, centered */}
-      {!consoleMode && <div style={{ flex: 1, position: "relative", minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+      {sceneVisible && !consoleMode && <div style={{ flex: 1, position: "relative", minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginRight: "min(50vw, 960px)" }}>
         <div style={{ width: `min(100%, calc(100vh * ${mapAspect}))`, height: `min(100%, calc(100vw / ${mapAspect}))`, aspectRatio: `${mapAspect}`, position: "relative", maxHeight: "100vh" }}>
         <PixelOfficeScene
           onAdapterReady={handleAdapterReady}
@@ -2987,7 +2988,7 @@ export default function OfficePage() {
           flexDirection: "column",
           alignItems: consoleMode ? "flex-start" : "flex-end",
           gap: 2,
-          transition: "right 0.3s ease",
+          transition: "left 0.3s ease, right 0.3s ease",
         }}>
           {/* Bookmark tabs */}
           {[
@@ -3032,7 +3033,17 @@ export default function OfficePage() {
 
           {/* Arrow button */}
           <button
-            onClick={() => setConsoleMode(!consoleMode)}
+            onClick={() => {
+              if (consoleMode) {
+                // Collapsing: animate sidebar first, then mount scene after transition
+                setConsoleMode(false);
+                setTimeout(() => setSceneVisible(true), 320);
+              } else {
+                // Expanding: hide scene immediately, then expand
+                setSceneVisible(false);
+                requestAnimationFrame(() => setConsoleMode(true));
+              }
+            }}
             style={{
               width: 28, height: 40, border: "none", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -3079,9 +3090,11 @@ export default function OfficePage() {
         </div>
 
         <div className="term-dotgrid" style={{
+          position: "fixed",
+          right: 0,
+          top: 0,
           width: consoleMode ? "100vw" : "min(50vw, 960px)",
           minWidth: 260,
-          flexShrink: 0,
           height: "100vh",
           backgroundColor: TERM_PANEL,
           border: "none",
@@ -3091,6 +3104,7 @@ export default function OfficePage() {
           flexDirection: "row",
           overflow: "hidden",
           transition: "width 0.3s ease",
+          zIndex: 10,
         }}>
           {/* ── Main content area ── */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, width: consoleMode ? "90%" : undefined, maxWidth: consoleMode ? "90%" : undefined, margin: consoleMode ? "10px auto" : undefined, border: consoleMode ? `1px solid ${TERM_GREEN}20` : undefined, borderRadius: consoleMode ? 8 : undefined }}>
